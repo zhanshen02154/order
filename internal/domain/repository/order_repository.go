@@ -2,16 +2,16 @@ package repository
 
 import (
 	"errors"
-	"git.imooc.com/zhanshen1614/order/domain/model"
+	"git.imooc.com/zhanshen1614/order/internal/domain/model"
 	order "git.imooc.com/zhanshen1614/order/proto/order"
 	"github.com/jinzhu/gorm"
 	"strings"
 	"time"
 )
 
-type IOrderRepository interface{
-    InitTable() error
-    FindOrderByID(int64) (*model.Order, error)
+type IOrderRepository interface {
+	InitTable() error
+	FindOrderByID(int64) (*model.Order, error)
 	CreateOrder(*model.Order) (int64, error)
 	DeleteOrderByID(int64) error
 	UpdateOrder(*model.Order) error
@@ -21,8 +21,8 @@ type IOrderRepository interface{
 }
 
 // NewOrderRepository 创建orderRepository
-func NewOrderRepository(db *gorm.DB) IOrderRepository  {
-	return &OrderRepository{mysqlDb:db}
+func NewOrderRepository(db *gorm.DB) IOrderRepository {
+	return &OrderRepository{mysqlDb: db}
 }
 
 type OrderRepository struct {
@@ -30,7 +30,7 @@ type OrderRepository struct {
 }
 
 // InitTable 初始化表
-func (u *OrderRepository)InitTable() error  {
+func (u *OrderRepository) InitTable() error {
 	if !u.mysqlDb.HasTable(&model.Order{}) && !u.mysqlDb.HasTable(&model.OrderDetail{}) {
 		return u.mysqlDb.CreateTable(&model.Order{}, &model.OrderDetail{}).Error
 	}
@@ -38,9 +38,9 @@ func (u *OrderRepository)InitTable() error  {
 }
 
 // FindOrderByID 根据ID查找Order信息
-func (u *OrderRepository)FindOrderByID(orderID int64) (order *model.Order,err error) {
+func (u *OrderRepository) FindOrderByID(orderID int64) (order *model.Order, err error) {
 	order = &model.Order{}
-	return order, u.mysqlDb.Preload("OrderDetail").First(order,orderID).Error
+	return order, u.mysqlDb.Preload("OrderDetail").First(order, orderID).Error
 }
 
 // CreateOrder 创建Order信息
@@ -53,7 +53,7 @@ func (u *OrderRepository) DeleteOrderByID(orderID int64) error {
 	tx := u.mysqlDb.Begin()
 
 	defer func() {
-		if r := recover();r != nil {
+		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
@@ -62,15 +62,15 @@ func (u *OrderRepository) DeleteOrderByID(orderID int64) error {
 		return tx.Error
 	}
 
-	if err := tx.Unscoped().Where("id = ?", orderID).Delete(&model.Order{}).Error;err != nil {
+	if err := tx.Unscoped().Where("id = ?", orderID).Delete(&model.Order{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	if err := tx.Unscoped().Where("order_id = ?", orderID).Delete(&model.OrderDetail{}).Error;err != nil {
+	if err := tx.Unscoped().Where("order_id = ?", orderID).Delete(&model.OrderDetail{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
-	return u.mysqlDb.Where("id = ?",orderID).Delete(&model.Order{}).Error
+	return u.mysqlDb.Where("id = ?", orderID).Delete(&model.Order{}).Error
 }
 
 // UpdateOrder 更新Order信息
@@ -79,9 +79,9 @@ func (u *OrderRepository) UpdateOrder(order *model.Order) error {
 }
 
 // FindAll 获取结果集
-func (u *OrderRepository) GetOrderPagedList(page *order.OrderPageRequest)(*Paginator[model.Order], error) {
+func (u *OrderRepository) GetOrderPagedList(page *order.OrderPageRequest) (*Paginator[model.Order], error) {
 	pageList := &Paginator[model.Order]{
-		Page: page.Page,
+		Page:     page.Page,
 		PageSize: page.PageSize,
 	}
 	var strBuilder strings.Builder
@@ -102,12 +102,12 @@ func (u *OrderRepository) GetOrderPagedList(page *order.OrderPageRequest)(*Pagin
 	if page.Conditions.OrderStartTime != nil {
 		startTime := page.Conditions.OrderStartTime.AsTime()
 		strBuilder.WriteString(" AND trade_time >= ?")
-		queryArgs = append(queryArgs, startTime.Format("2006-01-02") + " 00:00:00")
+		queryArgs = append(queryArgs, startTime.Format("2006-01-02")+" 00:00:00")
 	}
 	if page.Conditions.OrderEndTime != nil {
 		endTime := page.Conditions.OrderEndTime.AsTime()
 		strBuilder.WriteString(" AND trade_time <= ?")
-		queryArgs = append(queryArgs, endTime.Format("2006-01-02") + " 23:59:59")
+		queryArgs = append(queryArgs, endTime.Format("2006-01-02")+" 23:59:59")
 	}
 
 	query := u.mysqlDb.Model(&model.Order{}).Preload("OrderDetail").Where(strBuilder.String(), queryArgs...).Order("trade_time DESC")
@@ -115,14 +115,13 @@ func (u *OrderRepository) GetOrderPagedList(page *order.OrderPageRequest)(*Pagin
 	return pageList, err
 }
 
-//
 // UpdateShipStatus
-//  @Description: 更新发货状态
-//  @receiver u
-//  @param orderID
-//  @param shipStatus
-//  @return error
 //
+//	@Description: 更新发货状态
+//	@receiver u
+//	@param orderID
+//	@param shipStatus
+//	@return error
 func (u *OrderRepository) UpdateShipStatus(orderID int64, shipStatus int32) error {
 	db := u.mysqlDb.Model(&model.Order{}).Where("id = ?", orderID).UpdateColumn("ship_status", shipStatus)
 	if db.Error != nil {
@@ -134,20 +133,19 @@ func (u *OrderRepository) UpdateShipStatus(orderID int64, shipStatus int32) erro
 	return nil
 }
 
-//
 // UpdatePayStatus
-//  @Description: 更新支付状态
-//  @receiver u
-//  @param orderID
-//  @param payStatus
-//  @return error
 //
+//	@Description: 更新支付状态
+//	@receiver u
+//	@param orderID
+//	@param payStatus
+//	@return error
 func (u *OrderRepository) UpdatePayStatus(orderID int64, payStatus int32) error {
 	updateData := make(map[string]interface{})
 	updateData["pay_status"] = payStatus
 	if payStatus == 2 {
 		updateData["pay_time"] = time.Now()
-	}else if payStatus == 3 {
+	} else if payStatus == 3 {
 		updateData["pay_time"] = nil
 	}
 	db := u.mysqlDb.Model(&model.Order{}).Where("id = ?", orderID).Updates(updateData)

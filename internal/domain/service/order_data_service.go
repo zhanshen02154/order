@@ -1,13 +1,14 @@
 package service
 
 import (
-	"git.imooc.com/zhanshen1614/order/domain/model"
-	"git.imooc.com/zhanshen1614/order/domain/repository"
+	"git.imooc.com/zhanshen1614/order/internal/domain/model"
+	"git.imooc.com/zhanshen1614/order/internal/domain/repository"
 	order "git.imooc.com/zhanshen1614/order/proto/order"
+	_ "time/tzdata"
 )
 
 type IOrderDataService interface {
-	AddOrder(*model.Order) (int64 , error)
+	AddOrder(*model.Order) (int64, error)
 	DeleteOrder(int64) error
 	UpdateOrder(*model.Order) error
 	FindOrderByID(int64) (*model.Order, error)
@@ -16,38 +17,36 @@ type IOrderDataService interface {
 	UpdatePayStatus(int64, int32) error
 }
 
-
-//创建
-func NewOrderDataService(orderRepository repository.IOrderRepository) IOrderDataService{
-	return &OrderDataService{ orderRepository }
+// 创建
+func NewOrderDataService(orderRepository repository.IOrderRepository) IOrderDataService {
+	return &OrderDataService{orderRepository}
 }
 
 type OrderDataService struct {
 	OrderRepository repository.IOrderRepository
 }
 
-
-//插入
-func (u *OrderDataService) AddOrder(order *model.Order) (int64 ,error) {
-	 return u.OrderRepository.CreateOrder(order)
+// 插入
+func (u *OrderDataService) AddOrder(order *model.Order) (int64, error) {
+	return u.OrderRepository.CreateOrder(order)
 }
 
-//删除
+// 删除
 func (u *OrderDataService) DeleteOrder(orderID int64) error {
 	return u.OrderRepository.DeleteOrderByID(orderID)
 }
 
-//更新
+// 更新
 func (u *OrderDataService) UpdateOrder(order *model.Order) error {
 	return u.OrderRepository.UpdateOrder(order)
 }
 
-//根据id查找
+// 根据id查找
 func (u *OrderDataService) FindOrderByID(orderID int64) (*model.Order, error) {
 	return u.OrderRepository.FindOrderByID(orderID)
 }
 
-//查找
+// 查找
 func (u *OrderDataService) GetOrderPagedList(page *order.OrderPageRequest) (*repository.Paginator[model.Order], error) {
 	return u.OrderRepository.GetOrderPagedList(page)
 }

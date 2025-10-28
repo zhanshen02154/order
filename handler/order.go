@@ -2,9 +2,9 @@ package handler
 
 import (
 	"context"
-	"git.imooc.com/zhanshen1614/common"
-	"git.imooc.com/zhanshen1614/order/domain/model"
-	"git.imooc.com/zhanshen1614/order/domain/service"
+	"git.imooc.com/zhanshen1614/order/internal/domain/model"
+	"git.imooc.com/zhanshen1614/order/internal/domain/service"
+	"git.imooc.com/zhanshen1614/order/pkg/swap"
 	order "git.imooc.com/zhanshen1614/order/proto/order"
 )
 
@@ -17,7 +17,7 @@ func (o *Order) GetOrderById(ctx context.Context, request *order.OrderId, respon
 	if err != nil {
 		return err
 	}
-	if err := common.SwapTo(orderInfo, response); err != nil {
+	if err := swap.ConvertTo(orderInfo, response); err != nil {
 		return err
 	}
 	return nil
@@ -34,7 +34,7 @@ func (o *Order) GetOrderPagedList(ctx context.Context, request *order.OrderPageR
 	response.PageSize = pageList.PageSize
 	for _, item := range pageList.Data {
 		orderItem := &order.OrderInfo{}
-		if err := common.SwapTo(item, orderItem); err != nil {
+		if err := swap.ConvertTo(item, orderItem); err != nil {
 			return err
 		}
 		response.Data = append(response.Data, orderItem)
@@ -44,7 +44,7 @@ func (o *Order) GetOrderPagedList(ctx context.Context, request *order.OrderPageR
 
 func (o *Order) CreateOrder(ctx context.Context, request *order.OrderInfo, response *order.OrderId) error {
 	orderAdd := &model.Order{}
-	if err := common.SwapTo(request, orderAdd); err != nil {
+	if err := swap.ConvertTo(request, orderAdd); err != nil {
 		return err
 	}
 	orderID, err := o.OrderDataService.AddOrder(orderAdd)
@@ -79,15 +79,14 @@ func (o *Order) UpdateOrderPayStatus(ctx context.Context, request *order.PayStat
 	return nil
 }
 
-//
 // UpdateOrderShipStatus
-//  @Description: 更新订单物流状态
-//  @receiver o
-//  @param ctx
-//  @param request
-//  @param response
-//  @return error
 //
+//	@Description: 更新订单物流状态
+//	@receiver o
+//	@param ctx
+//	@param request
+//	@param response
+//	@return error
 func (o *Order) UpdateOrderShipStatus(ctx context.Context, request *order.ShipStatus, response *order.Response) error {
 	if err := o.OrderDataService.UpdateShipStatus(request.OrderId, request.ShipStatus); err != nil {
 		return err
@@ -98,7 +97,7 @@ func (o *Order) UpdateOrderShipStatus(ctx context.Context, request *order.ShipSt
 
 func (o *Order) UpdateOrder(ctx context.Context, request *order.OrderInfo, response *order.Response) error {
 	updateOrderInfo := model.Order{}
-	if err := common.SwapTo(request, updateOrderInfo); err != nil {
+	if err := swap.ConvertTo(request, updateOrderInfo); err != nil {
 		return err
 	}
 	if err := o.OrderDataService.UpdateOrder(&updateOrderInfo); err != nil {
