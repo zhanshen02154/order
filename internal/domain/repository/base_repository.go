@@ -3,19 +3,19 @@ package repository
 import "github.com/jinzhu/gorm"
 
 type Paginator[T any] struct {
-	Page        int64
-	PageSize    int64
-	Total       int64
-	Pages       int64
-	Data        []T
+	Page     int64
+	PageSize int64
+	Total    int64
+	Pages    int64
+	Data     []T
 }
 
 // Paginate
 // Paginate[T any]
-//  @Description: 分页查询
-//  @param page
-//  @return func(db *gorm.DB) *gorm.DB
 //
+//	@Description: 分页查询
+//	@param page
+//	@return func(db *gorm.DB) *gorm.DB
 func Paginate[T any](page *Paginator[T]) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if page.Page <= 0 {
@@ -29,7 +29,7 @@ func Paginate[T any](page *Paginator[T]) func(db *gorm.DB) *gorm.DB {
 		}
 
 		page.Pages = page.Total / page.PageSize
-		if page.Total % page.PageSize != 0 {
+		if page.Total%page.PageSize != 0 {
 			page.Pages++
 		}
 		p := page.Page
@@ -42,18 +42,15 @@ func Paginate[T any](page *Paginator[T]) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-//
 // FindPagedList
-//  @Description: 分页查询
-//  @receiver page
-//  @param db
-//  @param join
-//  @return err
 //
+//	@Description: 分页查询
+//	@receiver page
+//	@param db
+//	@param join
+//	@return err
 func (page *Paginator[T]) FindPagedList(db *gorm.DB) (err error) {
 	err = nil
 	err = db.Scopes(Paginate(page)).Find(&page.Data).Offset(-1).Limit(-1).Count(page.Total).Error
 	return
 }
-
-

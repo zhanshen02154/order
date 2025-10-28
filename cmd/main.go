@@ -2,40 +2,31 @@ package main
 
 import (
 	"fmt"
-	"git.imooc.com/zhanshen1614/common"
-	"git.imooc.com/zhanshen1614/order/domain/repository"
-	service2 "git.imooc.com/zhanshen1614/order/domain/service"
 	"git.imooc.com/zhanshen1614/order/handler"
+	configstruct "git.imooc.com/zhanshen1614/order/internal/config"
+	"git.imooc.com/zhanshen1614/order/internal/domain/repository"
+	service2 "git.imooc.com/zhanshen1614/order/internal/domain/service"
+	"git.imooc.com/zhanshen1614/order/internal/infrastructure/config"
+	"git.imooc.com/zhanshen1614/order/internal/infrastructure/registry"
 	order "git.imooc.com/zhanshen1614/order/proto/order"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
 	"github.com/micro/go-micro/v2"
-	"github.com/micro/go-micro/v2/registry"
 	"github.com/micro/go-micro/v2/util/log"
-	"github.com/micro/go-plugins/registry/consul/v2"
 	ratelimit "github.com/micro/go-plugins/wrapper/ratelimiter/uber/v2"
+	"net/http"
 	"net/url"
 	"time"
 )
 
-var (
-	QPS         = 1000
-	ServiceName = "go.micro.service.order"
-	PrometheusPort = 9092
-)
-
 func main() {
-	consulConfig, err := common.GetConsulConfig("127.0.0.1", 8500, "/micro/config")
+	confInfo, err := config.LoadSystemConfig()
 	if err != nil {
-		log.Error(err)
+		panic(err)
 	}
+
 	//注册中心
-	consulRegistry := consul.NewRegistry(func(options *registry.Options) {
-		options.Addrs = []string{
-			"127.0.0.1:8500",
-		}
-		options.Timeout = 3 * time.Minute
-	})
+	consulRegistry := registry.ConsulRegister(&confInfo.Consul)
 
 	//t,io,err := common.NewTracer(ServiceName, "127.0.0.1:6831")
 	//if err != nil {
@@ -44,11 +35,7 @@ func main() {
 	//defer io.Close()
 	//opetracing2.SetGlobalTracer(t)
 
-	mysqConfig, err := common.GetMySqlFromConsul(consulConfig, "mysql")
-	if err != nil {
-		log.Error(err)
-	}
-	db, err := initDB(mysqConfig)
+	db, err := initDB(&confInfo.Database)
 	if err != nil {
 		panic(fmt.Sprintf("error: %v", err))
 	}
@@ -65,13 +52,15 @@ func main() {
 
 	// New Service
 	service := micro.NewService(
-		micro.Name(ServiceName),
-		micro.Version("latest"),
-		micro.Address(":9085"),
+		micro.Name(confInfo.Service.Name),
+		micro.Version(confInfo.Service.Version),
+		micro.Address(confInfo.Service.Listen),
 		micro.Registry(consulRegistry),
+		micro.RegisterTTL(time.Duration(confInfo.Consul.RegisterTtl)*time.Second),
+		micro.RegisterInterval(time.Duration(confInfo.Consul.RegisterInterval)*time.Second),
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
-		micro.WrapHandler(ratelimit.NewHandlerWrapper(QPS)),
+		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.MaxQps)),
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 	)
@@ -79,10 +68,39 @@ func main() {
 	// Initialise service
 	service.Init()
 
+	// 健康检查
+	go func() {
+		// livenessProbe
+		http.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
+			writer.WriteHeader(http.StatusOK)
+			writer.Write([]byte("OK"))
+		})
+
+		// readinessProbe
+		http.HandleFunc("/ready", func(writer http.ResponseWriter, request *http.Request) {
+			if err := db.DB().Ping(); err != nil {
+				writer.WriteHeader(http.StatusServiceUnavailable)
+				writer.Write([]byte("Not Ready"))
+			} else {
+				writer.WriteHeader(http.StatusOK)
+				writer.Write([]byte("Ok"))
+			}
+		})
+		err = http.ListenAndServe(":8080", nil)
+		if err != nil {
+			log.Fatalf("check status http api error: %v", err)
+		} else {
+			log.Info("listen http server on: 8080")
+		}
+	}()
+
 	orderDataService := service2.NewOrderDataService(tableInit)
 
 	// Register Handler
-	order.RegisterOrderHandler(service.Server(), &handler.Order{OrderDataService: orderDataService})
+	err = order.RegisterOrderHandler(service.Server(), &handler.Order{OrderDataService: orderDataService})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Run service
 	if err := service.Run(); err != nil {
@@ -91,7 +109,7 @@ func main() {
 }
 
 // 初始化数据库
-func initDB(confInfo *common.MySqlConfig) (*gorm.DB, error) {
+func initDB(confInfo *configstruct.MySqlConfig) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=%s",
 		confInfo.User,
 		confInfo.Password,
