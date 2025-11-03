@@ -3,9 +3,9 @@ package gorm
 import (
 	"errors"
 	"github.com/jinzhu/gorm"
-	"order/internal/domain/model"
-	"order/internal/domain/repository"
-	order "order/proto/order"
+	"github.com/zhanshen02154/order/internal/domain/model"
+	"github.com/zhanshen02154/order/internal/domain/repository"
+	order "github.com/zhanshen02154/order/proto/order"
 	"strings"
 	"time"
 )

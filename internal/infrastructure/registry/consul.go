@@ -3,7 +3,7 @@ package registry
 import (
 	"github.com/micro/go-micro/v2/registry"
 	"github.com/micro/go-plugins/registry/consul/v2"
-	"order/internal/config"
+	"github.com/zhanshen02154/order/internal/config"
 	"time"
 )
 

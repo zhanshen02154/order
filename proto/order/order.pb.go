@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.8
 // 	protoc        v4.23.2
-// source: order/order.proto
+// source: github.com/zhanshen02154/order/order.proto
 
 package order
 
@@ -590,7 +590,7 @@ var File_order_order_proto protoreflect.FileDescriptor
 
 const file_order_order_proto_rawDesc = "" +
 	"\n" +
-	"\x11order/order.proto\x12\x10go.micro.service\x1a\x1fgoogle/protobuf/timestamp.proto\"$\n" +
+	"\x11github.com/zhanshen02154/order/order.proto\x12\x10go.micro.service\x1a\x1fgoogle/protobuf/timestamp.proto\"$\n" +
 	"\aOrderId\x12\x19\n" +
 	"\border_id\x18\x01 \x01(\x03R\aorderId\"\xb3\x01\n" +
 	"\tOrderInfo\x12\x0e\n" +

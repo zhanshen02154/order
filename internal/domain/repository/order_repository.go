@@ -1,8 +1,8 @@
 package repository
 
 import (
-	"order/internal/domain/model"
-	order "order/proto/order"
+	"github.com/zhanshen02154/order/internal/domain/model"
+	order "github.com/zhanshen02154/order/proto/order"
 )
 
 type IOrderRepository interface {

@@ -6,7 +6,7 @@ import (
 	"github.com/micro/go-micro/v2/config/encoder/yaml"
 	"github.com/micro/go-micro/v2/config/source"
 	"github.com/micro/go-plugins/config/source/consul/v2"
-	"order/internal/config"
+	"github.com/zhanshen02154/order/internal/config"
 	"os"
 )
 

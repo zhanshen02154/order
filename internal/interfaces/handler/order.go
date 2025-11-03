@@ -2,10 +2,10 @@ package handler
 
 import (
 	"context"
-	"order/internal/application/service"
-	"order/internal/domain/model"
-	"order/pkg/swap"
-	order "order/proto/order"
+	"github.com/zhanshen02154/order/internal/application/service"
+	"github.com/zhanshen02154/order/internal/domain/model"
+	"github.com/zhanshen02154/order/pkg/swap"
+	"github.com/zhanshen02154/order/proto/order"
 )
 
 type OrderHandler struct {

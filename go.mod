@@ -1,4 +1,4 @@
-module order
+module github.com/zhanshen02154/order
 
 go 1.20
 

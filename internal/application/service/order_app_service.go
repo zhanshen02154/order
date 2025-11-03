@@ -1,10 +1,10 @@
 package service
 
 import (
-	"order/internal/domain/model"
-	"order/internal/domain/repository"
-	"order/internal/domain/service"
-	order "order/proto/order"
+	"github.com/zhanshen02154/order/internal/domain/model"
+	"github.com/zhanshen02154/order/internal/domain/repository"
+	"github.com/zhanshen02154/order/internal/domain/service"
+	order "github.com/zhanshen02154/order/proto/order"
 )
 
 type IOrderApplicationService interface {
