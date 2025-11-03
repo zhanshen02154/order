@@ -2,11 +2,11 @@ package config
 
 import (
 	"fmt"
-	"git.imooc.com/zhanshen1614/order/internal/config"
 	config2 "github.com/micro/go-micro/v2/config"
 	"github.com/micro/go-micro/v2/config/encoder/yaml"
 	"github.com/micro/go-micro/v2/config/source"
 	"github.com/micro/go-plugins/config/source/consul/v2"
+	"order/internal/config"
 	"os"
 )
 

@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package go.micro.service.order;
+package go.micro.service;
+
+option go_package = "./proto/order";
 
 import "google/protobuf/timestamp.proto";
 

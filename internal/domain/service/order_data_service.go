@@ -1,16 +1,16 @@
 package service
 
 import (
-	"git.imooc.com/zhanshen1614/order/internal/domain/model"
-	"git.imooc.com/zhanshen1614/order/internal/domain/repository"
-	order "git.imooc.com/zhanshen1614/order/proto/order"
+	"order/internal/domain/model"
+	"order/internal/domain/repository"
+	order "order/proto/order"
 	_ "time/tzdata"
 )
 
 type IOrderDataService interface {
-	AddOrder(*model.Order) (int64, error)
-	DeleteOrder(int64) error
-	UpdateOrder(*model.Order) error
+	Add(*model.Order) (int64, error)
+	Delete(int64) error
+	Update(*model.Order) error
 	FindOrderByID(int64) (*model.Order, error)
 	GetOrderPagedList(page *order.OrderPageRequest) (*repository.Paginator[model.Order], error)
 	UpdateShipStatus(int64, int32) error
@@ -27,17 +27,17 @@ type OrderDataService struct {
 }
 
 // 插入
-func (u *OrderDataService) AddOrder(order *model.Order) (int64, error) {
+func (u *OrderDataService) Add(order *model.Order) (int64, error) {
 	return u.OrderRepository.CreateOrder(order)
 }
 
 // 删除
-func (u *OrderDataService) DeleteOrder(orderID int64) error {
+func (u *OrderDataService) Delete(orderID int64) error {
 	return u.OrderRepository.DeleteOrderByID(orderID)
 }
 
 // 更新
-func (u *OrderDataService) UpdateOrder(order *model.Order) error {
+func (u *OrderDataService) Update(order *model.Order) error {
 	return u.OrderRepository.UpdateOrder(order)
 }
 

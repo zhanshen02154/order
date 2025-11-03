@@ -2,13 +2,6 @@ package main
 
 import (
 	"fmt"
-	"git.imooc.com/zhanshen1614/order/handler"
-	configstruct "git.imooc.com/zhanshen1614/order/internal/config"
-	"git.imooc.com/zhanshen1614/order/internal/domain/repository"
-	service2 "git.imooc.com/zhanshen1614/order/internal/domain/service"
-	"git.imooc.com/zhanshen1614/order/internal/infrastructure/config"
-	"git.imooc.com/zhanshen1614/order/internal/infrastructure/registry"
-	order "git.imooc.com/zhanshen1614/order/proto/order"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
 	"github.com/micro/go-micro/v2"
@@ -16,6 +9,13 @@ import (
 	ratelimit "github.com/micro/go-plugins/wrapper/ratelimiter/uber/v2"
 	"net/http"
 	"net/url"
+	service2 "order/internal/application/service"
+	configstruct "order/internal/config"
+	"order/internal/infrastructure/config"
+	gormrepo "order/internal/infrastructure/persistence/gorm"
+	"order/internal/infrastructure/registry"
+	"order/internal/interfaces/handler"
+	order "order/proto/order"
 	"time"
 )
 
@@ -45,7 +45,7 @@ func main() {
 		}
 	}()
 
-	tableInit := repository.NewOrderRepository(db)
+	tableInit := gormrepo.NewOrderRepository(db)
 	//tableInit.InitTable()
 
 	//common.PrometheusBoot(PrometheusPort)
@@ -60,7 +60,7 @@ func main() {
 		micro.RegisterInterval(time.Duration(confInfo.Consul.RegisterInterval)*time.Second),
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
-		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.MaxQps)),
+		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.Qps)),
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 	)
@@ -94,10 +94,10 @@ func main() {
 		}
 	}()
 
-	orderDataService := service2.NewOrderDataService(tableInit)
+	orderAppService := service2.NewOrderApplicationService(tableInit)
 
 	// Register Handler
-	err = order.RegisterOrderHandler(service.Server(), &handler.Order{OrderDataService: orderDataService})
+	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -129,9 +129,9 @@ func initDB(confInfo *configstruct.MySqlConfig) (*gorm.DB, error) {
 	}
 
 	// 配置连接池
-	sqlDB.SetMaxOpenConns(1000)
-	sqlDB.SetMaxIdleConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetMaxOpenConns(confInfo.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(confInfo.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(time.Duration(confInfo.ConnMaxLifeTime) * time.Second)
 
 	// 验证连接
 	if err := sqlDB.Ping(); err != nil {

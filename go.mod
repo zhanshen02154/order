@@ -1,4 +1,4 @@
-module git.imooc.com/zhanshen1614/order
+module order
 
 go 1.20
 

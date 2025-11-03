@@ -27,7 +27,8 @@
 ```
 4. 在根目录下生成Protobuf对应的go文件及go-micro文件
 ```bash
-  protoc --go_out=. --micro_out=. ./proto/order/order.proto
+   # 指定两个proto_path，一个是项目的proto另一个是导入外部库的proto
+   protoc --proto_path=./proto --proto_path=<include path> --go_out=. --micro_out=. ./proto/order/order.proto
 ```
 ## 注意事项
 - proto文件更新后必须在Apisix的protos接口更新内容。
