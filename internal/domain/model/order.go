@@ -16,3 +16,10 @@ type Order struct {
 	CreatedAt   time.Time     `gorm:"type:datetime;comment:'创建时间'" json:"created_at"`
 	UpdatedAt   time.Time     `gorm:"type:datetime;comment:'更新时间'" json:"updated_at"`
 }
+
+type PayOrderInfo struct {
+	Id int64 `json:"id"`
+	PayStatus int32 `json:"pay_status"`
+	PayTime   time.Time `json:"pay_time"`
+	OrderDetailBasic []PayOrderDetailInfo
+}

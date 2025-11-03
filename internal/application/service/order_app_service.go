@@ -1,60 +1,62 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/internal/domain/service"
-	order "github.com/zhanshen02154/order/proto/order"
+	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
+	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction"
+	"github.com/zhanshen02154/order/proto/order"
+	"gorm.io/gorm"
 )
 
 type IOrderApplicationService interface {
-	AddOrder(orderInfo *model.Order) (int64, error)
-	DeleteOrder(id int64) error
-	UpdateOrder(orderInfo *model.Order) error
-	FindOrderByID(id int64) (*model.Order, error)
-	GetOrderPagedList(page *order.OrderPageRequest) (*repository.Paginator[model.Order], error)
-	UpdateShipStatus(id int64, status int32) error
-	UpdatePayStatus(id int64, status int32) error
+	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
+	PayNotify(ctx context.Context, req *order.PayNotifyRequest) error
 }
 
 type OrderApplicationService struct {
+	txManager        transaction.TransactionManager
 	orderDataService service.IOrderDataService
 	orderRepository  repository.IOrderRepository
 }
 
 // 创建
-func NewOrderApplicationService(orderRepo repository.IOrderRepository) IOrderApplicationService {
-	orderDataService := service.NewOrderDataService(orderRepo)
+func NewOrderApplicationService(db *gorm.DB) IOrderApplicationService {
+	orderRepo := gorm2.NewOrderRepository(db)
 	return &OrderApplicationService{
-		orderDataService: orderDataService,
+		orderDataService: service.NewOrderDataService(orderRepo),
 		orderRepository:  orderRepo,
+		txManager: gorm2.NewGormTransactionManager(db),
 	}
 }
 
-func (appService *OrderApplicationService) AddOrder(orderInfo *model.Order) (int64, error) {
-	return appService.orderDataService.Add(orderInfo)
+func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id int64) (*model.Order, error) {
+	return appService.orderDataService.FindOrderByID(ctx, id)
 }
 
-func (appService *OrderApplicationService) DeleteOrder(id int64) error {
-	return appService.orderDataService.Delete(id)
-}
+// 支付回调
+func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
+	if req.StatusCode != "0000" {
+		return errors.New("支付失败")
+	}
+	return appService.txManager.ExecuteTransaction(ctx, func(ctx context.Context) error {
+		orderInfo, err := appService.orderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
+		if err != nil {
+			return err
+		}
 
-func (appService *OrderApplicationService) UpdateOrder(orderInfo *model.Order) error {
-	return appService.orderDataService.Update(orderInfo)
-}
+		// 执行具体业务逻辑
+		err = appService.orderDataService.PayNotify(ctx, orderInfo)
+		if err != nil {
+			return err
+		}
 
-func (appService *OrderApplicationService) FindOrderByID(id int64) (*model.Order, error) {
-	return appService.orderDataService.FindOrderByID(id)
-}
+		// 调用客户端
 
-func (appService *OrderApplicationService) GetOrderPagedList(page *order.OrderPageRequest) (*repository.Paginator[model.Order], error) {
-	return appService.orderDataService.GetOrderPagedList(page)
-}
 
-func (appService *OrderApplicationService) UpdateShipStatus(id int64, status int32) error {
-	return appService.orderDataService.UpdateShipStatus(id, status)
-}
-
-func (appService *OrderApplicationService) UpdatePayStatus(id int64, status int32) error {
-	return appService.orderDataService.UpdatePayStatus(id, status)
+		return nil
+	})
 }

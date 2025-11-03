@@ -8,12 +8,7 @@ import "google/protobuf/timestamp.proto";
 
 service Order {
   rpc GetOrderById(OrderId) returns (OrderInfo) {}
-  rpc GetOrderPagedList(OrderPageRequest) returns (OrderPagedList) {}
-  rpc CreateOrder(OrderInfo) returns (OrderId) {}
-  rpc DeleteOrderById(OrderId) returns (Response) {}
-  rpc UpdateOrderPayStatus(PayStatus) returns (Response) {}
-  rpc UpdateOrderShipStatus(ShipStatus) returns (Response) {}
-  rpc UpdateOrder(OrderInfo) returns (Response) {}
+  rpc PayNotify(PayNotifyRequest) returns (PayNotifyResponse) {}
 }
 
 message OrderId {
@@ -73,3 +68,12 @@ message ShipStatus {
   int32 ship_status = 2;
 }
 
+message PayNotifyRequest {
+  string OutTradeNo = 1;
+  string TradeNo = 2;
+  string StatusCode = 3;
+}
+
+message PayNotifyResponse {
+  string StatusCode = 1;
+}

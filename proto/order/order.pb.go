@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.8
 // 	protoc        v4.23.2
-// source: github.com/zhanshen02154/order/order.proto
+// source: order/order.proto
 
 package order
 
@@ -586,11 +586,115 @@ func (x *ShipStatus) GetShipStatus() int32 {
 	return 0
 }
 
+type PayNotifyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OutTradeNo    string                 `protobuf:"bytes,1,opt,name=OutTradeNo,proto3" json:"OutTradeNo,omitempty"`
+	TradeNo       string                 `protobuf:"bytes,2,opt,name=TradeNo,proto3" json:"TradeNo,omitempty"`
+	StatusCode    string                 `protobuf:"bytes,3,opt,name=StatusCode,proto3" json:"StatusCode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PayNotifyRequest) Reset() {
+	*x = PayNotifyRequest{}
+	mi := &file_order_order_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PayNotifyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PayNotifyRequest) ProtoMessage() {}
+
+func (x *PayNotifyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_order_order_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PayNotifyRequest.ProtoReflect.Descriptor instead.
+func (*PayNotifyRequest) Descriptor() ([]byte, []int) {
+	return file_order_order_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *PayNotifyRequest) GetOutTradeNo() string {
+	if x != nil {
+		return x.OutTradeNo
+	}
+	return ""
+}
+
+func (x *PayNotifyRequest) GetTradeNo() string {
+	if x != nil {
+		return x.TradeNo
+	}
+	return ""
+}
+
+func (x *PayNotifyRequest) GetStatusCode() string {
+	if x != nil {
+		return x.StatusCode
+	}
+	return ""
+}
+
+type PayNotifyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StatusCode    string                 `protobuf:"bytes,1,opt,name=StatusCode,proto3" json:"StatusCode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PayNotifyResponse) Reset() {
+	*x = PayNotifyResponse{}
+	mi := &file_order_order_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PayNotifyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PayNotifyResponse) ProtoMessage() {}
+
+func (x *PayNotifyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_order_order_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PayNotifyResponse.ProtoReflect.Descriptor instead.
+func (*PayNotifyResponse) Descriptor() ([]byte, []int) {
+	return file_order_order_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PayNotifyResponse) GetStatusCode() string {
+	if x != nil {
+		return x.StatusCode
+	}
+	return ""
+}
+
 var File_order_order_proto protoreflect.FileDescriptor
 
 const file_order_order_proto_rawDesc = "" +
 	"\n" +
-	"\x11github.com/zhanshen02154/order/order.proto\x12\x10go.micro.service\x1a\x1fgoogle/protobuf/timestamp.proto\"$\n" +
+	"\x11order/order.proto\x12\x10go.micro.service\x1a\x1fgoogle/protobuf/timestamp.proto\"$\n" +
 	"\aOrderId\x12\x19\n" +
 	"\border_id\x18\x01 \x01(\x03R\aorderId\"\xb3\x01\n" +
 	"\tOrderInfo\x12\x0e\n" +
@@ -640,15 +744,22 @@ const file_order_order_proto_rawDesc = "" +
 	"ShipStatus\x12\x19\n" +
 	"\border_id\x18\x01 \x01(\x03R\aorderId\x12\x1f\n" +
 	"\vship_status\x18\x02 \x01(\x05R\n" +
-	"shipStatus2\xb5\x04\n" +
+	"shipStatus\"l\n" +
+	"\x10PayNotifyRequest\x12\x1e\n" +
+	"\n" +
+	"OutTradeNo\x18\x01 \x01(\tR\n" +
+	"OutTradeNo\x12\x18\n" +
+	"\aTradeNo\x18\x02 \x01(\tR\aTradeNo\x12\x1e\n" +
+	"\n" +
+	"StatusCode\x18\x03 \x01(\tR\n" +
+	"StatusCode\"3\n" +
+	"\x11PayNotifyResponse\x12\x1e\n" +
+	"\n" +
+	"StatusCode\x18\x01 \x01(\tR\n" +
+	"StatusCode2\xa9\x01\n" +
 	"\x05Order\x12H\n" +
-	"\fGetOrderById\x12\x19.go.micro.service.OrderId\x1a\x1b.go.micro.service.OrderInfo\"\x00\x12[\n" +
-	"\x11GetOrderPagedList\x12\".go.micro.service.OrderPageRequest\x1a .go.micro.service.OrderPagedList\"\x00\x12G\n" +
-	"\vCreateOrder\x12\x1b.go.micro.service.OrderInfo\x1a\x19.go.micro.service.OrderId\"\x00\x12J\n" +
-	"\x0fDeleteOrderById\x12\x19.go.micro.service.OrderId\x1a\x1a.go.micro.service.Response\"\x00\x12Q\n" +
-	"\x14UpdateOrderPayStatus\x12\x1b.go.micro.service.PayStatus\x1a\x1a.go.micro.service.Response\"\x00\x12S\n" +
-	"\x15UpdateOrderShipStatus\x12\x1c.go.micro.service.ShipStatus\x1a\x1a.go.micro.service.Response\"\x00\x12H\n" +
-	"\vUpdateOrder\x12\x1b.go.micro.service.OrderInfo\x1a\x1a.go.micro.service.Response\"\x00B\x0fZ\r./proto/orderb\x06proto3"
+	"\fGetOrderById\x12\x19.go.micro.service.OrderId\x1a\x1b.go.micro.service.OrderInfo\"\x00\x12V\n" +
+	"\tPayNotify\x12\".go.micro.service.PayNotifyRequest\x1a#.go.micro.service.PayNotifyResponse\"\x00B\x0fZ\r./proto/orderb\x06proto3"
 
 var (
 	file_order_order_proto_rawDescOnce sync.Once
@@ -662,7 +773,7 @@ func file_order_order_proto_rawDescGZIP() []byte {
 	return file_order_order_proto_rawDescData
 }
 
-var file_order_order_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_order_order_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_order_order_proto_goTypes = []any{
 	(*OrderId)(nil),               // 0: go.micro.service.OrderId
 	(*OrderInfo)(nil),             // 1: go.micro.service.OrderInfo
@@ -673,30 +784,22 @@ var file_order_order_proto_goTypes = []any{
 	(*Response)(nil),              // 6: go.micro.service.Response
 	(*PayStatus)(nil),             // 7: go.micro.service.PayStatus
 	(*ShipStatus)(nil),            // 8: go.micro.service.ShipStatus
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(*PayNotifyRequest)(nil),      // 9: go.micro.service.PayNotifyRequest
+	(*PayNotifyResponse)(nil),     // 10: go.micro.service.PayNotifyResponse
+	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
 }
 var file_order_order_proto_depIdxs = []int32{
 	2,  // 0: go.micro.service.OrderInfo.order_detail:type_name -> go.micro.service.OrderDetail
 	4,  // 1: go.micro.service.OrderPageRequest.conditions:type_name -> go.micro.service.OrderPageConditions
-	9,  // 2: go.micro.service.OrderPageConditions.order_start_time:type_name -> google.protobuf.Timestamp
-	9,  // 3: go.micro.service.OrderPageConditions.order_end_time:type_name -> google.protobuf.Timestamp
+	11, // 2: go.micro.service.OrderPageConditions.order_start_time:type_name -> google.protobuf.Timestamp
+	11, // 3: go.micro.service.OrderPageConditions.order_end_time:type_name -> google.protobuf.Timestamp
 	1,  // 4: go.micro.service.OrderPagedList.Data:type_name -> go.micro.service.OrderInfo
 	0,  // 5: go.micro.service.Order.GetOrderById:input_type -> go.micro.service.OrderId
-	3,  // 6: go.micro.service.Order.GetOrderPagedList:input_type -> go.micro.service.OrderPageRequest
-	1,  // 7: go.micro.service.Order.CreateOrder:input_type -> go.micro.service.OrderInfo
-	0,  // 8: go.micro.service.Order.DeleteOrderById:input_type -> go.micro.service.OrderId
-	7,  // 9: go.micro.service.Order.UpdateOrderPayStatus:input_type -> go.micro.service.PayStatus
-	8,  // 10: go.micro.service.Order.UpdateOrderShipStatus:input_type -> go.micro.service.ShipStatus
-	1,  // 11: go.micro.service.Order.UpdateOrder:input_type -> go.micro.service.OrderInfo
-	1,  // 12: go.micro.service.Order.GetOrderById:output_type -> go.micro.service.OrderInfo
-	5,  // 13: go.micro.service.Order.GetOrderPagedList:output_type -> go.micro.service.OrderPagedList
-	0,  // 14: go.micro.service.Order.CreateOrder:output_type -> go.micro.service.OrderId
-	6,  // 15: go.micro.service.Order.DeleteOrderById:output_type -> go.micro.service.Response
-	6,  // 16: go.micro.service.Order.UpdateOrderPayStatus:output_type -> go.micro.service.Response
-	6,  // 17: go.micro.service.Order.UpdateOrderShipStatus:output_type -> go.micro.service.Response
-	6,  // 18: go.micro.service.Order.UpdateOrder:output_type -> go.micro.service.Response
-	12, // [12:19] is the sub-list for method output_type
-	5,  // [5:12] is the sub-list for method input_type
+	9,  // 6: go.micro.service.Order.PayNotify:input_type -> go.micro.service.PayNotifyRequest
+	1,  // 7: go.micro.service.Order.GetOrderById:output_type -> go.micro.service.OrderInfo
+	10, // 8: go.micro.service.Order.PayNotify:output_type -> go.micro.service.PayNotifyResponse
+	7,  // [7:9] is the sub-list for method output_type
+	5,  // [5:7] is the sub-list for method input_type
 	5,  // [5:5] is the sub-list for extension type_name
 	5,  // [5:5] is the sub-list for extension extendee
 	0,  // [0:5] is the sub-list for field type_name
@@ -713,7 +816,7 @@ func file_order_order_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_order_order_proto_rawDesc), len(file_order_order_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

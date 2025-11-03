@@ -1,16 +1,12 @@
 package repository
 
 import (
+	"context"
 	"github.com/zhanshen02154/order/internal/domain/model"
-	order "github.com/zhanshen02154/order/proto/order"
 )
 
 type IOrderRepository interface {
-	FindOrderByID(int64) (*model.Order, error)
-	CreateOrder(orderInfo *model.Order) (int64, error)
-	DeleteOrderByID(int64) error
-	UpdateOrder(*model.Order) error
-	GetOrderPagedList(findReq *order.OrderPageRequest) (*Paginator[model.Order], error)
-	UpdateShipStatus(int64, int32) error
-	UpdatePayStatus(int64, int32) error
+	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
+	FindPayOrderByCode(ctx context.Context, orderCode string) (*model.PayOrderInfo, error)
+	UpdatePayOrder(ctx context.Context, orderInfo *model.Order) error
 }
