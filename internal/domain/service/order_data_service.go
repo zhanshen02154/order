@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
+	"time"
 )
 
 type IOrderDataService interface {
@@ -32,6 +33,9 @@ func (u *OrderDataService) PayNotify(ctx context.Context, payOrderInfo *model.Pa
 	if payOrderInfo.PayTime.Unix() > 0 {
 		return errors.New("订单已支付")
 	}
+	orderModel.Id = payOrderInfo.Id
+	orderModel.PayStatus = 3
+	orderModel.PayTime = time.Now()
 	err := u.orderRepository.UpdatePayOrder(ctx, orderModel)
 	return err
 }

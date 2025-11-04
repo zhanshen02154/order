@@ -21,5 +21,5 @@ type PayOrderInfo struct {
 	Id int64 `json:"id"`
 	PayStatus int32 `json:"pay_status"`
 	PayTime   time.Time `json:"pay_time"`
-	OrderDetailBasic []PayOrderDetailInfo
+	OrderDetailBasic []PayOrderDetailInfo `json:"order_detail_basic" gorm:"ForeignKey:OrderId"`
 }

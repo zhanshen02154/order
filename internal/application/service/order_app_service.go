@@ -6,10 +6,8 @@ import (
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/internal/domain/service"
-	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction"
 	"github.com/zhanshen02154/order/proto/order"
-	"gorm.io/gorm"
 )
 
 type IOrderApplicationService interface {
@@ -24,15 +22,15 @@ type OrderApplicationService struct {
 }
 
 // 创建
-func NewOrderApplicationService(db *gorm.DB) IOrderApplicationService {
-	orderRepo := gorm2.NewOrderRepository(db)
+func NewOrderApplicationService(txManager transaction.TransactionManager, orderRepo repository.IOrderRepository) IOrderApplicationService {
 	return &OrderApplicationService{
 		orderDataService: service.NewOrderDataService(orderRepo),
 		orderRepository:  orderRepo,
-		txManager: gorm2.NewGormTransactionManager(db),
+		txManager: txManager,
 	}
 }
 
+// 根据ID获取订单信息
 func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id int64) (*model.Order, error) {
 	return appService.orderDataService.FindOrderByID(ctx, id)
 }

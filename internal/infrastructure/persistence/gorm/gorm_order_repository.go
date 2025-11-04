@@ -18,21 +18,23 @@ func NewOrderRepository(db *gorm.DB) repository.IOrderRepository {
 }
 
 func (orderRepo *OrderRepository) FindOrderByID(ctx context.Context, id int64) (*model.Order, error) {
+	db := GetDBFromContext(ctx, orderRepo.db)
 	orderInfo := &model.Order{}
-	return orderInfo, orderRepo.db.Preload("OrderDetail").First(orderInfo, id).Error
+	return orderInfo, db.Preload("OrderDetail").First(orderInfo, id).Error
 }
 
 func (orderRepo *OrderRepository) FindPayOrderByCode(ctx context.Context, orderCode string) (*model.PayOrderInfo, error) {
 	db := GetDBFromContext(ctx, orderRepo.db)
 	payOrderInfo := &model.PayOrderInfo{}
-	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "order_code", "pay_status", "pay_time").Where("order_code = ?", orderCode).First(payOrderInfo).Error
+	err := db.Debug().Clauses(clause.Locking{Strength: "UPDATE"}).Table("orders").Select("id", "order_code", "pay_status", "pay_time").Where("order_code = ?", orderCode).First(payOrderInfo).Error
 	if err != nil {
 		return nil, err
 	}
 	if payOrderInfo == nil {
 		return nil, errors.New("订单不存在！")
 	}
-	err = db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("order_id = ?", payOrderInfo.Id).Find(&payOrderInfo.OrderDetailBasic).Error
+	err = db.Debug().Clauses(clause.Locking{Strength: "UPDATE"}).Table("order_details").
+		Where("order_id = ?", payOrderInfo.Id).Select("id", "product_id", "product_num", "product_size_id", "order_id").Find(&payOrderInfo.OrderDetailBasic).Error
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +44,7 @@ func (orderRepo *OrderRepository) FindPayOrderByCode(ctx context.Context, orderC
 // 更新订单状态
 func (orderRepo *OrderRepository) UpdatePayOrder(ctx context.Context, orderInfo *model.Order) error {
 	db := GetDBFromContext(ctx, orderRepo.db)
-	return db.Model(model.Order{}).Where("id = ?", orderInfo.Id).Select("pay_status", "pay_time").Updates(model.Order{
+	return db.Debug().Model(&model.Order{}).Where("id = ?", orderInfo.Id).Updates(model.Order{
 		PayStatus: orderInfo.PayStatus,
 		PayTime: orderInfo.PayTime,
 	}).Error

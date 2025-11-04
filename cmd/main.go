@@ -1,20 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/micro/go-micro/v2"
 	"github.com/micro/go-micro/v2/util/log"
 	ratelimit "github.com/micro/go-plugins/wrapper/ratelimiter/uber/v2"
 	service2 "github.com/zhanshen02154/order/internal/application/service"
-	configstruct "github.com/zhanshen02154/order/internal/config"
+	"github.com/zhanshen02154/order/internal/infrastructure"
 	"github.com/zhanshen02154/order/internal/infrastructure/config"
+	"github.com/zhanshen02154/order/internal/infrastructure/persistence"
+	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
 	"github.com/zhanshen02154/order/internal/infrastructure/registry"
 	"github.com/zhanshen02154/order/internal/interfaces/handler"
 	"github.com/zhanshen02154/order/proto/order"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"net/http"
-	"net/url"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -34,10 +37,20 @@ func main() {
 	//defer io.Close()
 	//opetracing2.SetGlobalTracer(t)
 
-	db, err := initDB(&confInfo.Database)
+	db, err := persistence.InitDB(&confInfo.Database)
 	if err != nil {
 		panic(fmt.Sprintf("error: %v", err))
 	}
+
+	// 健康检查
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	probeServer := infrastructure.NewProbeServer(":8080", db)
+	probeServer.Start(ctx)
+
+	txManager := gorm2.NewGormTransactionManager(db)
+	orderRepo := gorm2.NewOrderRepository(db)
+
 	//tableInit.InitTable()
 
 	//common.PrometheusBoot(PrometheusPort)
@@ -60,33 +73,7 @@ func main() {
 	// Initialise service
 	service.Init()
 
-	// 健康检查
-	go func() {
-		// livenessProbe
-		http.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
-			writer.WriteHeader(http.StatusOK)
-			writer.Write([]byte("OK"))
-		})
-
-		// readinessProbe
-		http.HandleFunc("/ready", func(writer http.ResponseWriter, request *http.Request) {
-			if err := checkDB(db); err != nil {
-				writer.WriteHeader(http.StatusServiceUnavailable)
-				writer.Write([]byte("Not Ready"))
-			} else {
-				writer.WriteHeader(http.StatusOK)
-				writer.Write([]byte("Ok"))
-			}
-		})
-		err = http.ListenAndServe(":8080", nil)
-		if err != nil {
-			log.Fatalf("check status http api error: %v", err)
-		} else {
-			log.Info("listen http server on: 8080")
-		}
-	}()
-
-	orderAppService := service2.NewOrderApplicationService(db)
+	orderAppService := service2.NewOrderApplicationService(txManager, orderRepo)
 
 	// Register Handler
 	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
@@ -94,60 +81,29 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Run service
-	if err := service.Run(); err != nil {
-		log.Fatal(err)
-	}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		select {
+		case <- sigChan:
+			cancel()
+		}
+	}()
+
+	// 这里需要单独一个协程来启动服务，
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err = service.Run(); err != nil {
+			log.Fatal(err)
+			cancel()
+		}
+	}()
+
+	wg.Wait()
+	probeServer.Wait()
+
 }
 
-// 初始化数据库
-func initDB(confInfo *configstruct.MySqlConfig) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=%s",
-		confInfo.User,
-		confInfo.Password,
-		confInfo.Host,
-		confInfo.Port,
-		confInfo.Database,
-		confInfo.Charset,
-		url.QueryEscape(confInfo.Loc),
-	)
-	db, err := gorm.Open(mysql.New(mysql.Config{
-		DSN:                           dsn,
-		SkipInitializeWithVersion:     false,
-		DefaultStringSize:             255,
-	}), &gorm.Config{SkipDefaultTransaction: true})
-	if err != nil {
-		return nil, err
-	}
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-	if sqlDB == nil {
-		return nil, fmt.Errorf("获取SQL DB失败: %w", err)
-	}
 
-	// 配置连接池
-	sqlDB.SetMaxOpenConns(confInfo.MaxOpenConns)
-	sqlDB.SetMaxIdleConns(confInfo.MaxIdleConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(confInfo.ConnMaxLifeTime) * time.Second)
-
-	// 验证连接
-	if err := sqlDB.Ping(); err != nil {
-		return nil, fmt.Errorf("数据库连接验证失败: %w", err)
-	}
-
-	log.Info("数据库连接成功")
-	return db, nil
-}
-
-func checkDB(db *gorm.DB) error {
-	sqlDb, err := db.DB()
-	if err != nil {
-		return err
-	}
-	if err = sqlDb.Ping(); err != nil {
-		return err
-	}
-	return nil
-}
