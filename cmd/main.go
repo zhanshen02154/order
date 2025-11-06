@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/micro/go-micro/v2"
+	"github.com/micro/go-micro/v2/client"
 	"github.com/micro/go-micro/v2/client/selector"
 	config2 "github.com/micro/go-micro/v2/config"
 	"github.com/micro/go-micro/v2/config/encoder/yaml"
@@ -103,6 +104,10 @@ func main() {
 		micro.Registry(consulRegistry),
 		micro.Selector(selector.NewSelector(selector.Registry(consulRegistry), selector.SetStrategy(selector.RoundRobin))),
 		micro.Transport(grpc.NewTransport()),
+		micro.Client(client.NewClient(
+			client.RequestTimeout(30 * time.Second),
+			client.DialTimeout(15 * time.Second),
+			)),
 	)
 	productService.Init()
 	productClient := product.NewProductService(confInfo.Consumer.Product.ServiceName, productService.Client())
