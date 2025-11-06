@@ -59,7 +59,7 @@ func main() {
 	}
 
 	var confInfo appconfig.SysConfig
-	if err = configInfo.Get("order").Scan(&configInfo); err != nil {
+	if err = configInfo.Get("order").Scan(&confInfo); err != nil {
 		log.Fatal(err)
 		return
 	}
