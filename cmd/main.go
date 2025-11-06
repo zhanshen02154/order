@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"github.com/micro/go-micro/v2"
 	"github.com/micro/go-micro/v2/client"
+	"github.com/micro/go-micro/v2/client/grpc"
 	"github.com/micro/go-micro/v2/client/selector"
 	config2 "github.com/micro/go-micro/v2/config"
 	"github.com/micro/go-micro/v2/config/encoder/yaml"
 	"github.com/micro/go-micro/v2/config/source"
-	"github.com/micro/go-micro/v2/transport/grpc"
 	"github.com/micro/go-micro/v2/util/log"
 	"github.com/micro/go-plugins/config/source/consul/v2"
 	ratelimit "github.com/micro/go-plugins/wrapper/ratelimiter/uber/v2"
@@ -99,15 +99,15 @@ func main() {
 	txManager := gorm2.NewGormTransactionManager(db)
 	orderRepo := gorm2.NewOrderRepository(db)
 	// 初始化商品服务客户端
+	grpcClient := grpc.NewClient(
+		client.Selector(selector.NewSelector(selector.Registry(consulRegistry), selector.SetStrategy(selector.RoundRobin))),
+		client.RequestTimeout(30 * time.Second),
+		client.DialTimeout(15 * time.Second),
+		)
 	productService := micro.NewService(
 		micro.Name(confInfo.Consumer.Product.ClientName),
 		micro.Registry(consulRegistry),
-		micro.Client(client.NewClient(
-			client.RequestTimeout(30 * time.Second),
-			client.DialTimeout(15 * time.Second),
-			client.Transport(grpc.NewTransport()),
-			client.Selector(selector.NewSelector(selector.Registry(consulRegistry), selector.SetStrategy(selector.RoundRobin))),
-			)),
+		micro.Client(grpcClient),
 	)
 	productService.Init()
 	productClient := product.NewProductService(confInfo.Consumer.Product.ServiceName, productService.Client())
@@ -131,9 +131,7 @@ func main() {
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.BeforeStop(func() error {
 			log.Info("收到关闭信号，正在停止健康检查服务器...")
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
-			defer cancel()
-			err =  probeServer.Shutdown(shutdownCtx)
+			err =  probeServer.Shutdown(context.Background())
 			if err != nil {
 				return err
 			}
