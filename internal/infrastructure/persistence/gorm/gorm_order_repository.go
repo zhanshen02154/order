@@ -23,9 +23,9 @@ func (orderRepo *OrderRepository) FindOrderByID(ctx context.Context, id int64) (
 	return orderInfo, db.Preload("OrderDetail").First(orderInfo, id).Error
 }
 
-func (orderRepo *OrderRepository) FindPayOrderByCode(ctx context.Context, orderCode string) (*model.PayOrderInfo, error) {
+func (orderRepo *OrderRepository) FindPayOrderByCode(ctx context.Context, orderCode string) (*model.Order, error) {
 	db := GetDBFromContext(ctx, orderRepo.db)
-	payOrderInfo := &model.PayOrderInfo{}
+	payOrderInfo := &model.Order{}
 	err := db.Debug().Clauses(clause.Locking{Strength: "UPDATE"}).Table("orders").Select("id", "order_code", "pay_status", "pay_time").Where("order_code = ?", orderCode).First(payOrderInfo).Error
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func (orderRepo *OrderRepository) FindPayOrderByCode(ctx context.Context, orderC
 		return nil, errors.New("订单不存在！")
 	}
 	err = db.Debug().Clauses(clause.Locking{Strength: "UPDATE"}).Table("order_details").
-		Where("order_id = ?", payOrderInfo.Id).Select("id", "product_id", "product_num", "product_size_id", "order_id").Find(&payOrderInfo.OrderDetailBasic).Error
+		Where("order_id = ?", payOrderInfo.Id).Select("product_id", "product_num", "product_size_id", "order_id").Find(&payOrderInfo.OrderDetail).Error
 	if err != nil {
 		return nil, err
 	}

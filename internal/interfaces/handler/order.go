@@ -16,7 +16,7 @@ func (o *OrderHandler) GetOrderById(ctx context.Context, request *order.OrderId,
 	if err != nil {
 		return err
 	}
-	if err := swap.ConvertTo(orderInfo, response); err != nil {
+	if err = swap.ConvertTo(orderInfo, response); err != nil {
 		return err
 	}
 	return nil
@@ -26,8 +26,9 @@ func (o *OrderHandler) GetOrderById(ctx context.Context, request *order.OrderId,
 func (o *OrderHandler) PayNotify(ctx context.Context, in *order.PayNotifyRequest, resp *order.PayNotifyResponse) error {
 	err := o.OrderAppService.PayNotify(ctx, in)
 	if err != nil {
-		return err
+		resp.StatusCode = "9999"
+	}else {
+		resp.StatusCode = "0000"
 	}
-	resp.StatusCode = "SUCCESS"
 	return nil
 }

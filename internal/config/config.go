@@ -4,6 +4,7 @@ type SysConfig struct {
 	Service  ServiceInfo `json:"service" yaml:"service"`
 	Database MySqlConfig `json:"database" yaml:"database"`
 	Consul   ConsulInfo  `json:"consul" yaml:"consul"`
+	Consumer Consumer    `json:"consumer" yaml:"consumer"`
 }
 
 // 服务信息
@@ -11,7 +12,8 @@ type ServiceInfo struct {
 	Name    string `json:"name" yaml:"name"`
 	Version string `json:"version" yaml:"version"`
 	Listen  string `json:"listen" yaml:"listen"`
-	Qps     int    `json:"max_qps" yaml:"qps"`
+	Qps     int    `json:"qps" yaml:"qps"`
+	Debug   bool   `json:"debug" yaml:"debug"`
 }
 
 // Consul配置信息
@@ -38,4 +40,13 @@ type MySqlConfig struct {
 	MaxOpenConns    int    `json:"max_open_conns" yaml:"max_open_conns"`
 	MaxIdleConns    int    `json:"max_idle_conns" yaml:"max_idle_conns"`
 	ConnMaxLifeTime uint   `json:"conn_max_life_time" yaml:"conn_max_life_time"`
+}
+
+type Consumer struct {
+	Product Product `json:"product" yaml:"product"`
+}
+
+type Product struct {
+	ClientName  string `json:"client_name" yaml:"client_name"`
+	ServiceName string `json:"service_name" yaml:"service_name"`
 }
