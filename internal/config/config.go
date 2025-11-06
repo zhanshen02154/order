@@ -9,11 +9,12 @@ type SysConfig struct {
 
 // 服务信息
 type ServiceInfo struct {
-	Name    string `json:"name" yaml:"name"`
-	Version string `json:"version" yaml:"version"`
-	Listen  string `json:"listen" yaml:"listen"`
-	Qps     int    `json:"qps" yaml:"qps"`
-	Debug   bool   `json:"debug" yaml:"debug"`
+	Name           string `json:"name" yaml:"name"`
+	Version        string `json:"version" yaml:"version"`
+	Listen         string `json:"listen" yaml:"listen"`
+	Qps            int    `json:"qps" yaml:"qps"`
+	Debug          bool   `json:"debug" yaml:"debug"`
+	HeathCheckAddr string `json:"heath_check_addr" yaml:"heath_check_addr"`
 }
 
 // Consul配置信息
