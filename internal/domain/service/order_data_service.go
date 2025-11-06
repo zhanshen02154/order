@@ -29,9 +29,6 @@ func (u *OrderDataService) FindOrderByID(ctx context.Context, id int64) (*model.
 
 // 订单支付回调
 func (u *OrderDataService) PayNotify(ctx context.Context, payOrderInfo *model.Order, req *order.PayNotifyRequest) error {
-	if payOrderInfo.PayTime.Unix() > 0 && payOrderInfo.PayStatus == 3 {
-		return nil
-	}
 	if req.StatusCode == "0000" {
 		payOrderInfo.PayStatus = 3
 		payOrderInfo.PayTime = time.Now()

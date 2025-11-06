@@ -46,6 +46,9 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 		if err != nil {
 			return err
 		}
+		if orderInfo.PayTime.Unix() > 0 && orderInfo.PayStatus == 3 {
+			return nil
+		}
 
 		// 执行具体业务逻辑
 		err = appService.orderDataService.PayNotify(ctx, orderInfo, req)
