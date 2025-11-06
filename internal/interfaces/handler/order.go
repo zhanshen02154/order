@@ -26,7 +26,7 @@ func (o *OrderHandler) GetOrderById(ctx context.Context, request *order.OrderId,
 func (o *OrderHandler) PayNotify(ctx context.Context, in *order.PayNotifyRequest, resp *order.PayNotifyResponse) error {
 	err := o.OrderAppService.PayNotify(ctx, in)
 	if err != nil {
-		resp.StatusCode = "9999"
+		resp.StatusCode = err.Error()
 	}else {
 		resp.StatusCode = "0000"
 	}
