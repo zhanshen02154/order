@@ -1,60 +1,44 @@
 package service
 
 import (
-	"git.imooc.com/zhanshen1614/order/internal/domain/model"
-	"git.imooc.com/zhanshen1614/order/internal/domain/repository"
-	order "git.imooc.com/zhanshen1614/order/proto/order"
-	_ "time/tzdata"
+	"context"
+	"errors"
+	"github.com/zhanshen02154/order/internal/domain/model"
+	"github.com/zhanshen02154/order/internal/domain/repository"
+	"github.com/zhanshen02154/order/proto/order"
+	"time"
 )
 
 type IOrderDataService interface {
-	AddOrder(*model.Order) (int64, error)
-	DeleteOrder(int64) error
-	UpdateOrder(*model.Order) error
-	FindOrderByID(int64) (*model.Order, error)
-	GetOrderPagedList(page *order.OrderPageRequest) (*repository.Paginator[model.Order], error)
-	UpdateShipStatus(int64, int32) error
-	UpdatePayStatus(int64, int32) error
+	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
+	PayNotify(ctx context.Context, payOrderInfo *model.Order, req *order.PayNotifyRequest) error
 }
 
 // 创建
 func NewOrderDataService(orderRepository repository.IOrderRepository) IOrderDataService {
-	return &OrderDataService{orderRepository}
+	return &OrderDataService{orderRepository: orderRepository}
 }
 
 type OrderDataService struct {
-	OrderRepository repository.IOrderRepository
-}
-
-// 插入
-func (u *OrderDataService) AddOrder(order *model.Order) (int64, error) {
-	return u.OrderRepository.CreateOrder(order)
-}
-
-// 删除
-func (u *OrderDataService) DeleteOrder(orderID int64) error {
-	return u.OrderRepository.DeleteOrderByID(orderID)
-}
-
-// 更新
-func (u *OrderDataService) UpdateOrder(order *model.Order) error {
-	return u.OrderRepository.UpdateOrder(order)
+	orderRepository repository.IOrderRepository
 }
 
 // 根据id查找
-func (u *OrderDataService) FindOrderByID(orderID int64) (*model.Order, error) {
-	return u.OrderRepository.FindOrderByID(orderID)
+func (u *OrderDataService) FindOrderByID(ctx context.Context, id int64) (*model.Order, error) {
+	return u.orderRepository.FindOrderByID(ctx, id)
 }
 
-// 查找
-func (u *OrderDataService) GetOrderPagedList(page *order.OrderPageRequest) (*repository.Paginator[model.Order], error) {
-	return u.OrderRepository.GetOrderPagedList(page)
-}
-
-func (u *OrderDataService) UpdateShipStatus(orderId int64, shipStatus int32) error {
-	return u.OrderRepository.UpdateShipStatus(orderId, shipStatus)
-}
-
-func (u *OrderDataService) UpdatePayStatus(orderId int64, payStatus int32) error {
-	return u.OrderRepository.UpdatePayStatus(orderId, payStatus)
+// 订单支付回调
+func (u *OrderDataService) PayNotify(ctx context.Context, payOrderInfo *model.Order, req *order.PayNotifyRequest) error {
+	if payOrderInfo.PayTime.Unix() > 0 && payOrderInfo.PayStatus == 3 {
+		return errors.New("订单已支付")
+	}
+	if req.StatusCode != "0000" {
+		payOrderInfo.PayStatus = 3
+		payOrderInfo.PayTime = time.Now()
+	}else {
+		payOrderInfo.PayStatus = 4
+	}
+	err := u.orderRepository.UpdatePayOrder(ctx, payOrderInfo)
+	return err
 }

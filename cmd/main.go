@@ -1,28 +1,67 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"git.imooc.com/zhanshen1614/order/handler"
-	configstruct "git.imooc.com/zhanshen1614/order/internal/config"
-	"git.imooc.com/zhanshen1614/order/internal/domain/repository"
-	service2 "git.imooc.com/zhanshen1614/order/internal/domain/service"
-	"git.imooc.com/zhanshen1614/order/internal/infrastructure/config"
-	"git.imooc.com/zhanshen1614/order/internal/infrastructure/registry"
-	order "git.imooc.com/zhanshen1614/order/proto/order"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jinzhu/gorm"
 	"github.com/micro/go-micro/v2"
+	"github.com/micro/go-micro/v2/client/selector"
+	config2 "github.com/micro/go-micro/v2/config"
+	"github.com/micro/go-micro/v2/config/encoder/yaml"
+	"github.com/micro/go-micro/v2/config/source"
+	"github.com/micro/go-micro/v2/transport/grpc"
 	"github.com/micro/go-micro/v2/util/log"
+	"github.com/micro/go-plugins/config/source/consul/v2"
 	ratelimit "github.com/micro/go-plugins/wrapper/ratelimiter/uber/v2"
+	service2 "github.com/zhanshen02154/order/internal/application/service"
+	appconfig "github.com/zhanshen02154/order/internal/config"
+	"github.com/zhanshen02154/order/internal/infrastructure"
+	"github.com/zhanshen02154/order/internal/infrastructure/persistence"
+	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
+	"github.com/zhanshen02154/order/internal/infrastructure/registry"
+	"github.com/zhanshen02154/order/internal/interfaces/handler"
+	"github.com/zhanshen02154/order/pkg/env"
+	"github.com/zhanshen02154/order/proto/order"
+	"github.com/zhanshen02154/order/proto/product"
 	"net/http"
-	"net/url"
+	_ "net/http/pprof"
 	"time"
 )
 
 func main() {
-	confInfo, err := config.LoadSystemConfig()
+	// 从consul获取配置
+	consulHost := env.GetEnv("CONSUL_HOST", "192.168.83.131")
+	consulPort := env.GetEnv("CONSUL_PORT", "8500")
+	consulPrefix := env.GetEnv("CONSUL_PREFIX", "/micro/")
+	consulSource := consul.NewSource(
+		// Set configuration address
+		consul.WithAddress(fmt.Sprintf("%s:%s", consulHost, consulPort)),
+		//前缀 默认：/micro/product
+		consul.WithPrefix(consulPrefix),
+		//consul.StripPrefix(true),
+		source.WithEncoder(yaml.NewEncoder()),
+		consul.StripPrefix(true),
+	)
+	configInfo, err := config2.NewConfig()
+	defer func() {
+		err = configInfo.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
+		return
+	}
+	err = configInfo.Load(consulSource)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	var confInfo appconfig.SysConfig
+	if err = configInfo.Get("order").Scan(&configInfo); err != nil {
+		log.Fatal(err)
+		return
 	}
 
 	//注册中心
@@ -35,17 +74,39 @@ func main() {
 	//defer io.Close()
 	//opetracing2.SetGlobalTracer(t)
 
-	db, err := initDB(&confInfo.Database)
+	db, err := persistence.InitDB(&confInfo.Database)
 	if err != nil {
-		panic(fmt.Sprintf("error: %v", err))
+		log.Fatalf("failed to load gorm framework", err)
+		return
 	}
-	defer func() {
-		if db != nil { // 关键检查
-			db.Close()
-		}
-	}()
 
-	tableInit := repository.NewOrderRepository(db)
+	// 健康检查
+	probeServer := infrastructure.NewProbeServer(":8081", db)
+	if err = probeServer.Start(); err != nil {
+		log.Fatalf("健康检查服务器启动失败")
+		return
+	}
+	if confInfo.Service.Debug {
+		go func() {
+			if err = http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("pprof服务器启动失败")
+			}
+			log.Info("pprof服务器已关闭")
+		}()
+	}
+
+	txManager := gorm2.NewGormTransactionManager(db)
+	orderRepo := gorm2.NewOrderRepository(db)
+	// 初始化商品服务客户端
+	productService := micro.NewService(
+		micro.Name(confInfo.Consumer.Product.ClientName),
+		micro.Registry(consulRegistry),
+		micro.Selector(selector.NewSelector(selector.Registry(consulRegistry), selector.SetStrategy(selector.RoundRobin))),
+		micro.Transport(grpc.NewTransport()),
+	)
+	productService.Init()
+	productClient := product.NewProductService(confInfo.Consumer.Product.ServiceName, productService.Client())
+
 	//tableInit.InitTable()
 
 	//common.PrometheusBoot(PrometheusPort)
@@ -60,84 +121,46 @@ func main() {
 		micro.RegisterInterval(time.Duration(confInfo.Consul.RegisterInterval)*time.Second),
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
-		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.MaxQps)),
+		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.Qps)),
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
+		micro.BeforeStop(func() error {
+			log.Info("收到关闭信号，正在停止健康检查服务器...")
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+			defer cancel()
+			err =  probeServer.Shutdown(shutdownCtx)
+			if err != nil {
+				return err
+			}
+			sqlDB, err := db.DB()
+			if err != nil {
+				return err
+			}
+			if err = sqlDB.Ping(); err == nil {
+				err1 := sqlDB.Close()
+				if err1 != nil {
+					log.Infof("关闭GORM连接失败： %v", err1)
+					return err1
+				}
+			}else {
+				log.Info("数据库已关闭")
+			}
+			return nil
+		}),
 	)
 
 	// Initialise service
 	service.Init()
-
-	// 健康检查
-	go func() {
-		// livenessProbe
-		http.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
-			writer.WriteHeader(http.StatusOK)
-			writer.Write([]byte("OK"))
-		})
-
-		// readinessProbe
-		http.HandleFunc("/ready", func(writer http.ResponseWriter, request *http.Request) {
-			if err := db.DB().Ping(); err != nil {
-				writer.WriteHeader(http.StatusServiceUnavailable)
-				writer.Write([]byte("Not Ready"))
-			} else {
-				writer.WriteHeader(http.StatusOK)
-				writer.Write([]byte("Ok"))
-			}
-		})
-		err = http.ListenAndServe(":8080", nil)
-		if err != nil {
-			log.Fatalf("check status http api error: %v", err)
-		} else {
-			log.Info("listen http server on: 8080")
-		}
-	}()
-
-	orderDataService := service2.NewOrderDataService(tableInit)
+	orderAppService := service2.NewOrderApplicationService(txManager, orderRepo, productClient)
 
 	// Register Handler
-	err = order.RegisterOrderHandler(service.Server(), &handler.Order{OrderDataService: orderDataService})
+	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Run service
-	if err := service.Run(); err != nil {
+	if err = service.Run(); err != nil {
 		log.Fatal(err)
 	}
-}
 
-// 初始化数据库
-func initDB(confInfo *configstruct.MySqlConfig) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=%s",
-		confInfo.User,
-		confInfo.Password,
-		confInfo.Host,
-		confInfo.Port,
-		confInfo.Database,
-		confInfo.Charset,
-		url.QueryEscape(confInfo.Loc),
-	)
-	db, err := gorm.Open("mysql", dsn)
-	if err != nil {
-		return nil, err
-	}
-	sqlDB := db.DB()
-	if sqlDB == nil {
-		return nil, fmt.Errorf("获取SQL DB失败: %w", err)
-	}
-
-	// 配置连接池
-	sqlDB.SetMaxOpenConns(1000)
-	sqlDB.SetMaxIdleConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
-
-	// 验证连接
-	if err := sqlDB.Ping(); err != nil {
-		return nil, fmt.Errorf("数据库连接验证失败: %w", err)
-	}
-
-	log.Info("数据库连接成功")
-	return db, nil
 }
