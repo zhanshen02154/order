@@ -134,6 +134,7 @@ func main() {
 			}
 			sqlDB, err := db.DB()
 			if err != nil {
+				log.Errorf("failed to close database: %v", err)
 				return err
 			}
 			if err = sqlDB.Ping(); err == nil {
