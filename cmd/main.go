@@ -102,11 +102,11 @@ func main() {
 	productService := micro.NewService(
 		micro.Name(confInfo.Consumer.Product.ClientName),
 		micro.Registry(consulRegistry),
-		micro.Selector(selector.NewSelector(selector.Registry(consulRegistry), selector.SetStrategy(selector.RoundRobin))),
-		micro.Transport(grpc.NewTransport()),
 		micro.Client(client.NewClient(
 			client.RequestTimeout(30 * time.Second),
 			client.DialTimeout(15 * time.Second),
+			client.Transport(grpc.NewTransport()),
+			client.Selector(selector.NewSelector(selector.Registry(consulRegistry), selector.SetStrategy(selector.RoundRobin))),
 			)),
 	)
 	productService.Init()
