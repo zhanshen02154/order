@@ -102,19 +102,22 @@ func main() {
 
 	txManager := gorm2.NewGormTransactionManager(db)
 	orderRepo := gorm2.NewOrderRepository(db)
+
 	// 初始化商品服务客户端
 	grpcClient := grpc.NewClient(
-		client.Selector(selector.NewSelector(selector.Registry(consulRegistry), selector.SetStrategy(selector.RoundRobin))),
+		client.Selector(
+			selector.NewSelector(
+				selector.Registry(consulRegistry),
+				selector.SetStrategy(selector.RoundRobin),
+				),
+			),
+		client.Registry(consulRegistry),
+		client.PoolSize(500),
+		client.PoolTTL(5 * time.Minute),
 		client.RequestTimeout(30 * time.Second),
 		client.DialTimeout(15 * time.Second),
 		)
-	productService := micro.NewService(
-		micro.Name(confInfo.Consumer.Product.ClientName),
-		micro.Registry(consulRegistry),
-		micro.Client(grpcClient),
-	)
-	productService.Init()
-	productClient := product.NewProductService(confInfo.Consumer.Product.ServiceName, productService.Client())
+	productClient := product.NewProductService(confInfo.Consumer.Product.ServiceName, grpcClient)
 
 	//tableInit.InitTable()
 
@@ -160,9 +163,7 @@ func main() {
 			return nil
 		}),
 	)
-
-	// Initialise service
-	service.Init()
+	//service.Init()
 	orderAppService := service2.NewOrderApplicationService(txManager, orderRepo, productClient)
 
 	// Register Handler
