@@ -25,6 +25,7 @@ import (
 	"github.com/zhanshen02154/order/proto/product"
 	"net/http"
 	_ "net/http/pprof"
+	"runtime"
 	"time"
 )
 
@@ -88,6 +89,9 @@ func main() {
 		return
 	}
 	if confInfo.Service.Debug {
+		runtime.SetBlockProfileRate(1)
+		runtime.SetCPUProfileRate(1)
+		runtime.SetMutexProfileFraction(1)
 		go func() {
 			if err = http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
 				log.Fatalf("pprof服务器启动失败")
@@ -130,8 +134,10 @@ func main() {
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.BeforeStop(func() error {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
+			defer cancel()
 			log.Info("收到关闭信号，正在停止健康检查服务器...")
-			err =  probeServer.Shutdown(context.Background())
+			err =  probeServer.Shutdown(shutdownCtx)
 			if err != nil {
 				return err
 			}
@@ -145,6 +151,8 @@ func main() {
 				if err1 != nil {
 					log.Infof("关闭GORM连接失败： %v", err1)
 					return err1
+				}else {
+					log.Info("GORM数据库连接已关闭")
 				}
 			}else {
 				log.Info("数据库已关闭")
