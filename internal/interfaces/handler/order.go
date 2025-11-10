@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"github.com/zhanshen02154/order/internal/application/service"
 	"github.com/zhanshen02154/order/pkg/swap"
 	"github.com/zhanshen02154/order/proto/order"
@@ -26,8 +27,10 @@ func (o *OrderHandler) GetOrderById(ctx context.Context, request *order.OrderId,
 func (o *OrderHandler) PayNotify(ctx context.Context, in *order.PayNotifyRequest, resp *order.PayNotifyResponse) error {
 	err := o.OrderAppService.PayNotify(ctx, in)
 	if err != nil {
-		resp.StatusCode = err.Error()
+		resp.Msg = fmt.Sprintf("FAILED: %v", err)
+		resp.StatusCode = "9999"
 	}else {
+		resp.Msg = "SUCCESS"
 		resp.StatusCode = "0000"
 	}
 	return nil

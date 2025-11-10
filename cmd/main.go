@@ -114,7 +114,7 @@ func main() {
 		client.Registry(consulRegistry),
 		client.PoolSize(500),
 		client.PoolTTL(5 * time.Minute),
-		client.RequestTimeout(30 * time.Second),
+		client.RequestTimeout(5 * time.Second),
 		client.DialTimeout(15 * time.Second),
 		)
 	productClient := product.NewProductService(confInfo.Consumer.Product.ServiceName, grpcClient)
