@@ -76,4 +76,5 @@ message PayNotifyRequest {
 
 message PayNotifyResponse {
   string StatusCode = 1;
+  string Msg = 2;
 }

@@ -649,6 +649,7 @@ func (x *PayNotifyRequest) GetStatusCode() string {
 type PayNotifyResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StatusCode    string                 `protobuf:"bytes,1,opt,name=StatusCode,proto3" json:"StatusCode,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=Msg,proto3" json:"Msg,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -686,6 +687,13 @@ func (*PayNotifyResponse) Descriptor() ([]byte, []int) {
 func (x *PayNotifyResponse) GetStatusCode() string {
 	if x != nil {
 		return x.StatusCode
+	}
+	return ""
+}
+
+func (x *PayNotifyResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
 	}
 	return ""
 }
@@ -752,11 +760,12 @@ const file_order_order_proto_rawDesc = "" +
 	"\aTradeNo\x18\x02 \x01(\tR\aTradeNo\x12\x1e\n" +
 	"\n" +
 	"StatusCode\x18\x03 \x01(\tR\n" +
-	"StatusCode\"3\n" +
+	"StatusCode\"E\n" +
 	"\x11PayNotifyResponse\x12\x1e\n" +
 	"\n" +
 	"StatusCode\x18\x01 \x01(\tR\n" +
-	"StatusCode2\xa9\x01\n" +
+	"StatusCode\x12\x10\n" +
+	"\x03Msg\x18\x02 \x01(\tR\x03Msg2\xa9\x01\n" +
 	"\x05Order\x12H\n" +
 	"\fGetOrderById\x12\x19.go.micro.service.OrderId\x1a\x1b.go.micro.service.OrderInfo\"\x00\x12V\n" +
 	"\tPayNotify\x12\".go.micro.service.PayNotifyRequest\x1a#.go.micro.service.PayNotifyResponse\"\x00B\x0fZ\r./proto/orderb\x06proto3"

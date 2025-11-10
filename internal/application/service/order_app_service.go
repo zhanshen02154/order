@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/internal/domain/service"
@@ -48,6 +49,9 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 		}
 		if orderInfo.PayTime.Unix() > 0 && orderInfo.PayStatus == 3 {
 			return nil
+		}
+		if len(orderInfo.OrderDetail) == 0 {
+			return errors.New(fmt.Sprintf("pay notify error on order_id: %d: no details found", orderInfo.Id))
 		}
 
 		// 执行具体业务逻辑
