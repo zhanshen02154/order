@@ -7,6 +7,7 @@ import (
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/internal/domain/service"
+	"github.com/zhanshen02154/order/internal/infrastructure"
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction"
 	"github.com/zhanshen02154/order/pkg/swap"
 	"github.com/zhanshen02154/order/proto/order"
@@ -23,15 +24,21 @@ type OrderApplicationService struct {
 	orderDataService service.IOrderDataService
 	orderRepository  repository.IOrderRepository
 	productServiceClient product.ProductService
+	lockManager infrastructure.LockManager
 }
 
 // 创建
-func NewOrderApplicationService(txManager transaction.TransactionManager, orderRepo repository.IOrderRepository, productSrv product.ProductService) IOrderApplicationService {
+func NewOrderApplicationService(txManager transaction.TransactionManager,
+	orderRepo repository.IOrderRepository,
+	productSrv product.ProductService,
+	lockManager infrastructure.LockManager,
+) IOrderApplicationService {
 	return &OrderApplicationService{
 		orderDataService: service.NewOrderDataService(orderRepo),
 		orderRepository:  orderRepo,
 		txManager: txManager,
 		productServiceClient: productSrv,
+		lockManager: lockManager,
 	}
 }
 

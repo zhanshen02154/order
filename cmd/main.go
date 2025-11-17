@@ -102,6 +102,11 @@ func main() {
 
 	txManager := gorm2.NewGormTransactionManager(db)
 	orderRepo := gorm2.NewOrderRepository(db)
+	lockManager, err := infrastructure.NewEtcdLockManager(&confInfo.Etcd)
+	if err != nil {
+		log.Fatalf(fmt.Sprintf("failed to load lock manager: %v", err))
+		return
+	}
 
 	// 初始化商品服务客户端
 	grpcClient := grpc.NewClient(
@@ -160,11 +165,17 @@ func main() {
 			}else {
 				log.Info("数据库已关闭")
 			}
+			err = lockManager.Close()
+			if err != nil {
+				log.Fatalf("failed to close etcd: %v", err)
+			}else {
+				log.Info("etcd was closed")
+			}
 			return nil
 		}),
 	)
 	//service.Init()
-	orderAppService := service2.NewOrderApplicationService(txManager, orderRepo, productClient)
+	orderAppService := service2.NewOrderApplicationService(txManager, orderRepo, productClient, lockManager)
 
 	// Register Handler
 	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
