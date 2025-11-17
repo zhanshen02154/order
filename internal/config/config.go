@@ -4,6 +4,7 @@ type SysConfig struct {
 	Service  ServiceInfo `json:"service" yaml:"service"`
 	Database MySqlConfig `json:"database" yaml:"database"`
 	Consul   ConsulInfo  `json:"consul" yaml:"consul"`
+	Etcd     Etcd        `json:"etcd" yaml:"etcd"`
 	Consumer Consumer    `json:"consumer" yaml:"consumer"`
 }
 
@@ -41,6 +42,15 @@ type MySqlConfig struct {
 	MaxOpenConns    int    `json:"max_open_conns" yaml:"max_open_conns"`
 	MaxIdleConns    int    `json:"max_idle_conns" yaml:"max_idle_conns"`
 	ConnMaxLifeTime uint   `json:"conn_max_life_time" yaml:"conn_max_life_time"`
+}
+
+type Etcd struct {
+	Hosts            []string `json:"hosts" yaml:"hosts"`
+	DialTimeout      int64    `json:"dial_timeout" yaml:"dial_timeout"`
+	Username         string   `yaml:"username" json:"username"`
+	Password         string   `yaml:"password" json:"password"`
+	AutoSyncInterval int64    `yaml:"auto_sync_interval" json:"auto_sync_interval"`
+	Prefix           string   `yaml:"prefix" json:"prefix"`
 }
 
 type Consumer struct {
