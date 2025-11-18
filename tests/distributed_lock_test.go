@@ -13,10 +13,10 @@ var lockManager infrastructure.LockManager
 
 func setup() {
 	etcdConf := &config.Etcd{
-		Hosts:            []string{"http://192.168.83.131:2379"},
+		Hosts:            []string{"http://127.0.0.1:2379"},
 		DialTimeout:      30,
 		Username:         "order",
-		Password:         "347834dh",
+		Password:         "",
 		AutoSyncInterval: 5,
 		Prefix:           "/micro/order/",
 	}
@@ -28,8 +28,12 @@ func TestLock(t *testing.T) {
 	defer teardown()
 	lockkey := "testKey"
 	ctx := context.Background()
-	lock := lockManager.NewLock(ctx, lockkey)
-	flag, err := lock.Lock(ctx, 30)
+	lock, err := lockManager.NewLock(ctx, lockkey, 30)
+	if err != nil {
+		log.Info(err)
+		return
+	}
+	flag, err := lock.Lock(ctx)
 	defer func() {
 		if lock != nil {
 			lock.UnLock(ctx)
