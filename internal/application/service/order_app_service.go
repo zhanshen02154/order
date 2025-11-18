@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/zhanshen02154/order/internal/domain/model"
-	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/internal/domain/service"
 	"github.com/zhanshen02154/order/internal/infrastructure"
-	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction"
 	"github.com/zhanshen02154/order/pkg/swap"
 	"github.com/zhanshen02154/order/proto/order"
 	"github.com/zhanshen02154/order/proto/product"
@@ -20,25 +18,16 @@ type IOrderApplicationService interface {
 }
 
 type OrderApplicationService struct {
-	txManager        transaction.TransactionManager
 	orderDataService service.IOrderDataService
-	orderRepository  repository.IOrderRepository
-	productServiceClient product.ProductService
-	lockManager infrastructure.LockManager
+	serviceContext *infrastructure.ServiceContext
 }
 
 // 创建
-func NewOrderApplicationService(txManager transaction.TransactionManager,
-	orderRepo repository.IOrderRepository,
-	productSrv product.ProductService,
-	lockManager infrastructure.LockManager,
+func NewOrderApplicationService(
+	serviceContext *infrastructure.ServiceContext,
 ) IOrderApplicationService {
 	return &OrderApplicationService{
-		orderDataService: service.NewOrderDataService(orderRepo),
-		orderRepository:  orderRepo,
-		txManager: txManager,
-		productServiceClient: productSrv,
-		lockManager: lockManager,
+		orderDataService: service.NewOrderDataService(serviceContext.OrderRepository),
 	}
 }
 
@@ -49,8 +38,8 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 
 // 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
-	return appService.txManager.ExecuteTransaction(ctx, func(ctx context.Context) error {
-		orderInfo, err := appService.orderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
+	return appService.serviceContext.TxManager.ExecuteTransaction(ctx, func(ctx context.Context) error {
+		orderInfo, err := appService.serviceContext.OrderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
 		if err != nil {
 			return err
 		}
@@ -75,7 +64,7 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 		if err != nil {
 			return err
 		}
-		resp, err := appService.productServiceClient.DeductInvetory(ctx, &productDetails)
+		resp, err := appService.serviceContext.ProductClient.DeductInvetory(ctx, &productDetails)
 		if err != nil {
 			return err
 		}
