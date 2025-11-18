@@ -2,27 +2,17 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/micro/go-micro/v2"
-	"github.com/micro/go-micro/v2/client"
-	"github.com/micro/go-micro/v2/client/grpc"
-	"github.com/micro/go-micro/v2/client/selector"
 	config2 "github.com/micro/go-micro/v2/config"
-	"github.com/micro/go-micro/v2/config/encoder/yaml"
-	"github.com/micro/go-micro/v2/config/source"
 	"github.com/micro/go-micro/v2/util/log"
-	"github.com/micro/go-plugins/config/source/consul/v2"
 	ratelimit "github.com/micro/go-plugins/wrapper/ratelimiter/uber/v2"
 	service2 "github.com/zhanshen02154/order/internal/application/service"
 	appconfig "github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
-	"github.com/zhanshen02154/order/internal/infrastructure/persistence"
-	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
+	"github.com/zhanshen02154/order/internal/infrastructure/config"
 	"github.com/zhanshen02154/order/internal/infrastructure/registry"
 	"github.com/zhanshen02154/order/internal/interfaces/handler"
-	"github.com/zhanshen02154/order/pkg/env"
 	"github.com/zhanshen02154/order/proto/order"
-	"github.com/zhanshen02154/order/proto/product"
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
@@ -31,18 +21,7 @@ import (
 
 func main() {
 	// 从consul获取配置
-	consulHost := env.GetEnv("CONSUL_HOST", "192.168.83.131")
-	consulPort := env.GetEnv("CONSUL_PORT", "8500")
-	consulPrefix := env.GetEnv("CONSUL_PREFIX", "/micro/")
-	consulSource := consul.NewSource(
-		// Set configuration address
-		consul.WithAddress(fmt.Sprintf("%s:%s", consulHost, consulPort)),
-		//前缀 默认：/micro/product
-		consul.WithPrefix(consulPrefix),
-		//consul.StripPrefix(true),
-		source.WithEncoder(yaml.NewEncoder()),
-		consul.StripPrefix(true),
-	)
+	consulConfigSource := config.LoadConsulCOnfig()
 	configInfo, err := config2.NewConfig()
 	defer func() {
 		err = configInfo.Close()
@@ -54,12 +33,11 @@ func main() {
 		log.Fatal(err)
 		return
 	}
-	err = configInfo.Load(consulSource)
+	err = configInfo.Load(consulConfigSource)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-
 	var confInfo appconfig.SysConfig
 	if err = configInfo.Get("order").Scan(&confInfo); err != nil {
 		log.Fatal(err)
@@ -76,14 +54,15 @@ func main() {
 	//defer io.Close()
 	//opetracing2.SetGlobalTracer(t)
 
-	db, err := persistence.InitDB(&confInfo.Database)
+	serviceContext, err := infrastructure.NewServiceContext(&confInfo, consulRegistry)
+	defer serviceContext.Close()
 	if err != nil {
-		log.Fatalf("failed to load gorm framework", err)
+		log.Fatalf("error to load service context: %s", err)
 		return
 	}
 
 	// 健康检查
-	probeServer := infrastructure.NewProbeServer(confInfo.Service.HeathCheckAddr, db)
+	probeServer := infrastructure.NewProbeServer(confInfo.Service.HeathCheckAddr, serviceContext)
 	if err = probeServer.Start(); err != nil {
 		log.Fatalf("健康检查服务器启动失败")
 		return
@@ -99,30 +78,6 @@ func main() {
 			log.Info("pprof服务器已关闭")
 		}()
 	}
-
-	txManager := gorm2.NewGormTransactionManager(db)
-	orderRepo := gorm2.NewOrderRepository(db)
-	lockManager, err := infrastructure.NewEtcdLockManager(&confInfo.Etcd)
-	if err != nil {
-		log.Fatalf(fmt.Sprintf("failed to load lock manager: %v", err))
-		return
-	}
-
-	// 初始化商品服务客户端
-	grpcClient := grpc.NewClient(
-		client.Selector(
-			selector.NewSelector(
-				selector.Registry(consulRegistry),
-				selector.SetStrategy(selector.RoundRobin),
-				),
-			),
-		client.Registry(consulRegistry),
-		client.PoolSize(500),
-		client.PoolTTL(5 * time.Minute),
-		client.RequestTimeout(5 * time.Second),
-		client.DialTimeout(15 * time.Second),
-		)
-	productClient := product.NewProductService(confInfo.Consumer.Product.ServiceName, grpcClient)
 
 	//tableInit.InitTable()
 
@@ -149,33 +104,11 @@ func main() {
 			if err != nil {
 				return err
 			}
-			sqlDB, err := db.DB()
-			if err != nil {
-				log.Errorf("failed to close database: %v", err)
-				return err
-			}
-			if err = sqlDB.Ping(); err == nil {
-				err1 := sqlDB.Close()
-				if err1 != nil {
-					log.Infof("关闭GORM连接失败： %v", err1)
-					return err1
-				}else {
-					log.Info("GORM数据库连接已关闭")
-				}
-			}else {
-				log.Info("数据库已关闭")
-			}
-			err = lockManager.Close()
-			if err != nil {
-				log.Fatalf("failed to close etcd: %v", err)
-			}else {
-				log.Info("etcd was closed")
-			}
 			return nil
 		}),
 	)
 	//service.Init()
-	orderAppService := service2.NewOrderApplicationService(txManager, orderRepo, productClient, lockManager)
+	orderAppService := service2.NewOrderApplicationService(serviceContext)
 
 	// Register Handler
 	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})

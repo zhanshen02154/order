@@ -3,7 +3,6 @@ package infrastructure
 import (
 	"context"
 	"github.com/micro/go-micro/v2/util/log"
-	"gorm.io/gorm"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -12,35 +11,30 @@ import (
 // 健康检查探针
 type ProbeServer struct {
 	server *http.Server
-	db     *gorm.DB
 	wg     sync.WaitGroup
 	isShuttingDown atomic.Bool
+	serviceContext *ServiceContext
 }
 
-func NewProbeServer(port string, db *gorm.DB) *ProbeServer {
+func NewProbeServer(port string, serviceContext *ServiceContext) *ProbeServer {
 	mx := http.NewServeMux()
 	mx.HandleFunc("/healthz", func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
 		writer.Write([]byte("OK"))
 	})
 	mx.HandleFunc("/ready", func(writer http.ResponseWriter, request *http.Request) {
-		sqlDB, err := db.DB()
+		err := serviceContext.CheckHealth()
 		if err != nil {
 			writer.WriteHeader(http.StatusServiceUnavailable)
 			writer.Write([]byte("Not Ready"))
 		} else {
-			if err = sqlDB.Ping(); err != nil {
-				writer.WriteHeader(http.StatusServiceUnavailable)
-				writer.Write([]byte("Not Ready"))
-			} else {
-				writer.WriteHeader(http.StatusOK)
-				writer.Write([]byte("OK"))
-			}
+			writer.WriteHeader(http.StatusOK)
+			writer.Write([]byte("OK"))
 		}
 	})
 	return &ProbeServer{
 		server: &http.Server{Addr: port, Handler: mx},
-		db:     db,
+		serviceContext: serviceContext,
 	}
 }
 
