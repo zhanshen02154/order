@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/concurrency"
-	"github.com/micro/go-micro/v2/util/log"
 	"github.com/zhanshen02154/order/internal/config"
+	"go-micro.dev/v4/logger"
+	"go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 	"sync/atomic"
 	"time"
 )
@@ -21,9 +21,9 @@ type DistributedLock interface {
 
 // ETCD锁
 type EtcdLock struct {
-	session *concurrency.Session
-	mutex *concurrency.Mutex
-	prefix string
+	session  *concurrency.Session
+	mutex    *concurrency.Mutex
+	prefix   string
 	isLocked atomic.Bool
 }
 
@@ -54,7 +54,7 @@ func (l *EtcdLock) UnLock(ctx context.Context) (bool, error) {
 	defer func() {
 		err := l.session.Close()
 		if err != nil {
-			log.Fatalf(fmt.Sprintf("prefix key: %s session close failed: %s", l.prefix, err))
+			logger.Fatalf(fmt.Sprintf("prefix key: %s session close failed: %s", l.prefix, err))
 		}
 	}()
 	if err := l.mutex.Unlock(ctx); err != nil {
@@ -70,13 +70,13 @@ type LockManager interface {
 	Close() error
 }
 
-// ETCD分布式锁
+// EtcdLockManager ETCD分布式锁
 type EtcdLockManager struct {
-	ecli *clientv3.Client
+	ecli   *clientv3.Client
 	prefix string
 }
 
-// 关闭客户端
+// Close 关闭客户端
 func (elm *EtcdLockManager) Close() error {
 	return elm.ecli.Close()
 }
@@ -85,7 +85,7 @@ func (elm *EtcdLockManager) Close() error {
 func (elm *EtcdLockManager) NewLock(ctx context.Context, key string, ttl int) (DistributedLock, error) {
 	session, err := concurrency.NewSession(elm.ecli, concurrency.WithTTL(ttl), concurrency.WithContext(ctx))
 	if err != nil {
-		log.Infof("failed to create session: %v", err)
+		logger.Infof("failed to create session: %v", err)
 		err = session.Close()
 		if err != nil {
 			return nil, err
@@ -94,23 +94,22 @@ func (elm *EtcdLockManager) NewLock(ctx context.Context, key string, ttl int) (D
 	}
 	return &EtcdLock{
 		session: session,
-		prefix:   fmt.Sprintf("%slock/%s", elm.prefix, key),
+		prefix:  fmt.Sprintf("%slock/%s", elm.prefix, key),
 	}, nil
 }
 
 // 创建分布式锁
 func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	client, err := clientv3.New(clientv3.Config{
-		Endpoints:            conf.Hosts,
-		AutoSyncInterval:     time.Duration(conf.AutoSyncInterval) * time.Second,
-		DialTimeout:          time.Duration(conf.DialTimeout) * time.Second,
-		Username:             conf.Username,
-		Password:             conf.Password,
+		Endpoints:        conf.Hosts,
+		AutoSyncInterval: time.Duration(conf.AutoSyncInterval) * time.Second,
+		DialTimeout:      time.Duration(conf.DialTimeout) * time.Second,
+		Username:         conf.Username,
+		Password:         conf.Password,
 	})
 	if err != nil {
 		return nil, err
 	}
-	log.Info("ETCD was stared")
+	logger.Info("ETCD was stared")
 	return &EtcdLockManager{ecli: client, prefix: conf.Prefix}, nil
 }
-

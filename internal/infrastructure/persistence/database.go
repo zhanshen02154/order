@@ -2,8 +2,8 @@ package persistence
 
 import (
 	"fmt"
-	"github.com/micro/go-micro/v2/util/log"
 	configstruct "github.com/zhanshen02154/order/internal/config"
+	"go-micro.dev/v4/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"net/url"
@@ -22,9 +22,9 @@ func InitDB(confInfo *configstruct.MySqlConfig) (*gorm.DB, error) {
 		url.QueryEscape(confInfo.Loc),
 	)
 	db, err := gorm.Open(mysql.New(mysql.Config{
-		DSN:                           dsn,
-		SkipInitializeWithVersion:     false,
-		DefaultStringSize:             255,
+		DSN:                       dsn,
+		SkipInitializeWithVersion: false,
+		DefaultStringSize:         255,
 	}), &gorm.Config{SkipDefaultTransaction: true})
 	if err != nil {
 		return nil, err
@@ -47,6 +47,6 @@ func InitDB(confInfo *configstruct.MySqlConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("数据库连接验证失败: %w", err)
 	}
 
-	log.Info("数据库连接成功")
+	logger.Info("数据库连接成功")
 	return db, nil
 }
