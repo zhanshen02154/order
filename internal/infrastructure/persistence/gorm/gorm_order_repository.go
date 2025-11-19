@@ -46,6 +46,6 @@ func (orderRepo *OrderRepository) UpdatePayOrder(ctx context.Context, orderInfo 
 	db := GetDBFromContext(ctx, orderRepo.db)
 	return db.Debug().Model(&model.Order{}).Where("id = ?", orderInfo.Id).Updates(model.Order{
 		PayStatus: orderInfo.PayStatus,
-		PayTime: orderInfo.PayTime,
+		PayTime:   orderInfo.PayTime,
 	}).Error
 }

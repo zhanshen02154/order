@@ -3,9 +3,9 @@ package tests
 import (
 	"context"
 	"github.com/bmizerany/assert"
-	"github.com/micro/go-micro/v2/util/log"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
+	"go-micro.dev/v4/logger"
 	"testing"
 )
 
@@ -30,7 +30,7 @@ func TestLock(t *testing.T) {
 	ctx := context.Background()
 	lock, err := lockManager.NewLock(ctx, lockkey, 30)
 	if err != nil {
-		log.Info(err)
+		logger.Info(err)
 		return
 	}
 	flag, err := lock.Lock(ctx)
@@ -46,8 +46,8 @@ func TestLock(t *testing.T) {
 func teardown() {
 	err := lockManager.Close()
 	if err != nil {
-		log.Fatal(err)
-	}else {
-		log.Info("lock manager closed")
+		logger.Fatal(err)
+	} else {
+		logger.Info("lock manager closed")
 	}
 }

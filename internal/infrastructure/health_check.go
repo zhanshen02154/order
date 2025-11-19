@@ -2,7 +2,7 @@ package infrastructure
 
 import (
 	"context"
-	"github.com/micro/go-micro/v2/util/log"
+	"go-micro.dev/v4/logger"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -10,8 +10,8 @@ import (
 
 // 健康检查探针
 type ProbeServer struct {
-	server *http.Server
-	wg     sync.WaitGroup
+	server         *http.Server
+	wg             sync.WaitGroup
 	isShuttingDown atomic.Bool
 	serviceContext *ServiceContext
 }
@@ -33,7 +33,7 @@ func NewProbeServer(port string, serviceContext *ServiceContext) *ProbeServer {
 		}
 	})
 	return &ProbeServer{
-		server: &http.Server{Addr: port, Handler: mx},
+		server:         &http.Server{Addr: port, Handler: mx},
 		serviceContext: serviceContext,
 	}
 }
@@ -45,7 +45,7 @@ func (probeServe *ProbeServer) Start() error {
 		defer probeServe.wg.Done()
 		err := probeServe.server.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Health check server error: %v", err)
+			logger.Fatalf("Health check server error: %v", err)
 		}
 	}()
 	return nil
@@ -58,6 +58,6 @@ func (probeServe *ProbeServer) Shutdown(ctx context.Context) error {
 		return err
 	}
 	probeServe.wg.Wait()
-	log.Info("健康检查服务器已关闭")
+	logger.Info("健康检查服务器已关闭")
 	return nil
 }

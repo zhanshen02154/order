@@ -29,7 +29,7 @@ func (o *OrderHandler) PayNotify(ctx context.Context, in *order.PayNotifyRequest
 	if err != nil {
 		resp.Msg = fmt.Sprintf("FAILED: %v", err)
 		resp.StatusCode = "9999"
-	}else {
+	} else {
 		resp.Msg = "SUCCESS"
 		resp.StatusCode = "0000"
 	}

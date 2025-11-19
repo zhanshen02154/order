@@ -2,10 +2,9 @@ package config
 
 import (
 	"fmt"
-	"github.com/micro/go-micro/v2/config/encoder/yaml"
-	"github.com/micro/go-micro/v2/config/source"
-	"github.com/micro/go-plugins/config/source/consul/v2"
+	"github.com/go-micro/plugins/v4/config/source/consul"
 	"github.com/zhanshen02154/order/pkg/env"
+	"go-micro.dev/v4/config/source"
 )
 
 func LoadConsulCOnfig() source.Source {
@@ -19,7 +18,6 @@ func LoadConsulCOnfig() source.Source {
 		//前缀 默认：/micro/product
 		consul.WithPrefix(consulPrefix),
 		//consul.StripPrefix(true),
-		source.WithEncoder(yaml.NewEncoder()),
 		consul.StripPrefix(true),
 	)
 	return consulSource

@@ -19,7 +19,7 @@ type IOrderApplicationService interface {
 
 type OrderApplicationService struct {
 	orderDataService service.IOrderDataService
-	serviceContext *infrastructure.ServiceContext
+	serviceContext   *infrastructure.ServiceContext
 }
 
 // 创建

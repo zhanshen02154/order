@@ -10,7 +10,7 @@ type GormTransactionManager struct {
 	db *gorm.DB
 }
 
-type txKey struct {}
+type txKey struct{}
 
 func (gtm *GormTransactionManager) ExecuteTransaction(ctx context.Context, fn func(txCtx context.Context) error) error {
 	tx := gtm.db.Begin()

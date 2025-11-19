@@ -2,46 +2,44 @@ package main
 
 import (
 	"context"
-	"github.com/micro/go-micro/v2"
-	config2 "github.com/micro/go-micro/v2/config"
-	"github.com/micro/go-micro/v2/util/log"
-	ratelimit "github.com/micro/go-plugins/wrapper/ratelimiter/uber/v2"
-	service2 "github.com/zhanshen02154/order/internal/application/service"
-	appconfig "github.com/zhanshen02154/order/internal/config"
+	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
+	appservice "github.com/zhanshen02154/order/internal/application/service"
+	config2 "github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
-	"github.com/zhanshen02154/order/internal/infrastructure/config"
+	config3 "github.com/zhanshen02154/order/internal/infrastructure/config"
 	"github.com/zhanshen02154/order/internal/infrastructure/registry"
 	"github.com/zhanshen02154/order/internal/interfaces/handler"
 	"github.com/zhanshen02154/order/proto/order"
+	"go-micro.dev/v4"
+	"go-micro.dev/v4/config"
+	"go-micro.dev/v4/logger"
 	"net/http"
-	_ "net/http/pprof"
 	"runtime"
 	"time"
 )
 
 func main() {
-	// 从consul获取配置
-	consulConfigSource := config.LoadConsulCOnfig()
-	configInfo, err := config2.NewConfig()
+	consulSource := config3.LoadConsulCOnfig()
+	configInfo, err := config.NewConfig()
 	defer func() {
 		err = configInfo.Close()
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 	}()
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 		return
 	}
-	err = configInfo.Load(consulConfigSource)
+	err = configInfo.Load(consulSource)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 		return
 	}
-	var confInfo appconfig.SysConfig
-	if err = configInfo.Get("order").Scan(&confInfo); err != nil {
-		log.Fatal(err)
-		return
+
+	var confInfo config2.SysConfig
+	if err := configInfo.Get("order").Scan(&confInfo); err != nil {
+		logger.Fatal(err)
 	}
 
 	//注册中心
@@ -49,7 +47,7 @@ func main() {
 
 	//t,io,err := common.NewTracer(ServiceName, "127.0.0.1:6831")
 	//if err != nil {
-	//	log.Error(err)
+	//	logger.Error(err)
 	//}
 	//defer io.Close()
 	//opetracing2.SetGlobalTracer(t)
@@ -57,14 +55,14 @@ func main() {
 	serviceContext, err := infrastructure.NewServiceContext(&confInfo, consulRegistry)
 	defer serviceContext.Close()
 	if err != nil {
-		log.Fatalf("error to load service context: %s", err)
+		logger.Fatalf("error to load service context: %s", err)
 		return
 	}
 
 	// 健康检查
 	probeServer := infrastructure.NewProbeServer(confInfo.Service.HeathCheckAddr, serviceContext)
 	if err = probeServer.Start(); err != nil {
-		log.Fatalf("健康检查服务器启动失败")
+		logger.Fatalf("健康检查服务器启动失败")
 		return
 	}
 	if confInfo.Service.Debug {
@@ -73,9 +71,9 @@ func main() {
 		runtime.SetMutexProfileFraction(1)
 		go func() {
 			if err = http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("pprof服务器启动失败")
+				logger.Fatalf("pprof服务器启动失败")
 			}
-			log.Info("pprof服务器已关闭")
+			logger.Info("pprof服务器已关闭")
 		}()
 	}
 
@@ -97,10 +95,10 @@ func main() {
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.BeforeStop(func() error {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			log.Info("收到关闭信号，正在停止健康检查服务器...")
-			err =  probeServer.Shutdown(shutdownCtx)
+			logger.Info("收到关闭信号，正在停止健康检查服务器...")
+			err = probeServer.Shutdown(shutdownCtx)
 			if err != nil {
 				return err
 			}
@@ -108,16 +106,15 @@ func main() {
 		}),
 	)
 	//service.Init()
-	orderAppService := service2.NewOrderApplicationService(serviceContext)
+	orderAppService := appservice.NewOrderApplicationService(serviceContext)
 
 	// Register Handler
 	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	if err = service.Run(); err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
-
 }

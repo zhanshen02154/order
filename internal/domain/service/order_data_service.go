@@ -32,7 +32,7 @@ func (u *OrderDataService) PayNotify(ctx context.Context, payOrderInfo *model.Or
 	if req.StatusCode == "0000" {
 		payOrderInfo.PayStatus = 3
 		payOrderInfo.PayTime = time.Now()
-	}else {
+	} else {
 		payOrderInfo.PayStatus = 4
 	}
 	err := u.orderRepository.UpdatePayOrder(ctx, payOrderInfo)

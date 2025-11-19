@@ -2,17 +2,17 @@ package infrastructure
 
 import (
 	"fmt"
-	"github.com/micro/go-micro/v2/client"
-	"github.com/micro/go-micro/v2/client/grpc"
-	"github.com/micro/go-micro/v2/client/selector"
-	"github.com/micro/go-micro/v2/registry"
-	"github.com/micro/go-micro/v2/util/log"
+	"github.com/go-micro/plugins/v4/client/grpc"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence"
 	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction"
 	"github.com/zhanshen02154/order/proto/product"
+	"go-micro.dev/v4/client"
+	"go-micro.dev/v4/logger"
+	"go-micro.dev/v4/registry"
+	"go-micro.dev/v4/selector"
 	"gorm.io/gorm"
 	"time"
 )
@@ -35,7 +35,7 @@ func NewServiceContext(conf *config.SysConfig, serviceReg registry.Registry) (*S
 	// 加载ETCD分布式锁
 	lockMgr, err := NewEtcdLockManager(&conf.Etcd)
 	if err != nil {
-		log.Fatalf(fmt.Sprintf("failed to load lock manager: %v", err))
+		logger.Fatalf(fmt.Sprintf("failed to load lock manager: %v", err))
 		return nil, err
 	}
 
@@ -49,9 +49,9 @@ func NewServiceContext(conf *config.SysConfig, serviceReg registry.Registry) (*S
 		),
 		client.Registry(serviceReg),
 		client.PoolSize(500),
-		client.PoolTTL(5 * time.Minute),
-		client.RequestTimeout(5 * time.Second),
-		client.DialTimeout(15 * time.Second),
+		client.PoolTTL(5*time.Minute),
+		client.RequestTimeout(5*time.Second),
+		client.DialTimeout(15*time.Second),
 	)
 	productClient := product.NewProductService(conf.Consumer.Product.ServiceName, grpcClient)
 	return &ServiceContext{
@@ -60,7 +60,7 @@ func NewServiceContext(conf *config.SysConfig, serviceReg registry.Registry) (*S
 		Conf:            conf,
 		db:              db,
 		OrderRepository: gorm2.NewOrderRepository(db),
-		ProductClient: productClient,
+		ProductClient:   productClient,
 	}, nil
 }
 
@@ -68,11 +68,11 @@ func NewServiceContext(conf *config.SysConfig, serviceReg registry.Registry) (*S
 func (svc *ServiceContext) Close() {
 	// 关闭数据库
 	if err := svc.closeDB(); err != nil {
-		log.Fatalf("close database error: %v", err)
+		logger.Fatalf("close database error: %v", err)
 	}
 	// 关闭ETCD
 	if err := svc.closeEtcd(); err != nil {
-		log.Fatalf("close etcd error: %v", err)
+		logger.Fatalf("close etcd error: %v", err)
 	}
 }
 
@@ -83,13 +83,13 @@ func (svc *ServiceContext) closeDB() error {
 
 		return err
 	} else {
-		log.Info("Preparing to close GORM")
+		logger.Info("Preparing to close GORM")
 	}
 	if err := sqlDB.Close(); err != nil {
-		log.Fatalf("Failed to close database instance: %v", err)
+		logger.Fatalf("Failed to close database instance: %v", err)
 		return err
 	} else {
-		log.Info("GORM数据库连接已关闭")
+		logger.Info("GORM数据库连接已关闭")
 	}
 	return nil
 }
@@ -98,9 +98,9 @@ func (svc *ServiceContext) closeDB() error {
 func (svc *ServiceContext) closeEtcd() error {
 	err := svc.LockManager.Close()
 	if err != nil {
-		log.Fatalf("Failed to close etcd lock manager: %v", err)
+		logger.Fatalf("Failed to close etcd lock manager: %v", err)
 	} else {
-		log.Info("ETCD lock manager closed")
+		logger.Info("ETCD lock manager closed")
 	}
 	return err
 }
@@ -112,8 +112,7 @@ func (svc *ServiceContext) CheckHealth() error {
 		return err
 	}
 	if err := sqlDB.Ping(); err != nil {
-		log.Fatalf("Failed to close database instance: %v", err)
+		logger.Fatalf("Failed to close database instance: %v", err)
 	}
 	return nil
 }
-
