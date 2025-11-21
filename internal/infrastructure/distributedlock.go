@@ -15,6 +15,7 @@ import (
 // 分布式锁接口
 type DistributedLock interface {
 	Lock(ctx context.Context) (bool, error)
+	TryLock(ctx context.Context) (bool, error)
 	UnLock(ctx context.Context) (bool, error)
 	GetKey(ctx context.Context) string
 }
@@ -39,6 +40,23 @@ func (l *EtcdLock) Lock(ctx context.Context) (bool, error) {
 	}
 	l.mutex = concurrency.NewMutex(l.session, l.prefix)
 	if err := l.mutex.Lock(ctx); err != nil {
+		err = l.session.Close()
+		if err != nil {
+			return false, errors.New(fmt.Sprintf("prefix key: %s session close failed: %s", l.prefix, err))
+		}
+		return false, err
+	}
+	l.isLocked.Store(true)
+	return true, nil
+}
+
+// 加锁（尝试获取锁）
+func (l *EtcdLock) TryLock(ctx context.Context) (bool, error) {
+	if l.isLocked.Load() {
+		return false, errors.New(fmt.Sprintf("key: %s was locked", l.prefix))
+	}
+	l.mutex = concurrency.NewMutex(l.session, l.prefix)
+	if err := l.mutex.TryLock(ctx); err != nil {
 		err = l.session.Close()
 		if err != nil {
 			return false, errors.New(fmt.Sprintf("prefix key: %s session close failed: %s", l.prefix, err))

@@ -42,7 +42,7 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 	if err != nil {
 		return err
 	}
-	ok, err := lock.Lock(ctx)
+	ok, err := lock.TryLock(ctx)
 	defer lock.UnLock(ctx)
 	if err != nil {
 		return err
