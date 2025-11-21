@@ -12,8 +12,7 @@ import (
 type IOrderDataService interface {
 	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
 	PayNotify(ctx context.Context, payOrderInfo *model.Order, req *order.PayNotifyRequest) error
-	ConfirmPayment(ctx context.Context, req *order.PayNotifyRequest) error
-	ConfirmPaymentRevert(ctx context.Context, req *order.PayNotifyRequest) error
+	UpdateOrderPayStatus(ctx context.Context, orderInfo *model.Order, req *order.PayNotifyRequest) error
 }
 
 // 创建
@@ -39,34 +38,19 @@ func (u *OrderDataService) PayNotify(ctx context.Context, payOrderInfo *model.Or
 	return err
 }
 
-// 确认支付
-func (u *OrderDataService) ConfirmPayment(ctx context.Context, req *order.PayNotifyRequest) error {
-	orderInfo := &model.Order{
-		OrderCode: req.OutTradeNo,
-	}
+func (u *OrderDataService) UpdateOrderPayStatus(ctx context.Context, orderInfo *model.Order, req *order.PayNotifyRequest) error {
 	if req.StatusCode == "0000" {
 		orderInfo.PayStatus = 3
 		orderInfo.PayTime = sql.NullTime{
 			Time:  time.Now(),
 			Valid: true,
 		}
-	}
-	err := u.orderRepository.ConfirmPaymentOrder(ctx, orderInfo)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// 确认支付的补偿操作
-func (u *OrderDataService) ConfirmPaymentRevert(ctx context.Context, req *order.PayNotifyRequest) error {
-	orderInfo := &model.Order{
-		OrderCode: req.OutTradeNo,
-		PayStatus: 2,
-		PayTime: sql.NullTime{
+	}else {
+		orderInfo.PayStatus = 4
+		orderInfo.PayTime = sql.NullTime{
 			Time:  time.Time{},
 			Valid: false,
-		},
+		}
 	}
-	return u.orderRepository.ConfirmPaymentOrder(ctx, orderInfo)
+	return u.orderRepository.UpdatePayOrder(ctx, orderInfo)
 }
