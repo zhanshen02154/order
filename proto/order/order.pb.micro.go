@@ -39,8 +39,6 @@ func NewOrderEndpoints() []*api.Endpoint {
 type OrderService interface {
 	GetOrderById(ctx context.Context, in *OrderId, opts ...client.CallOption) (*OrderInfo, error)
 	PayNotify(ctx context.Context, in *PayNotifyRequest, opts ...client.CallOption) (*PayNotifyResponse, error)
-	ConfirmPayment(ctx context.Context, in *PayNotifyRequest, opts ...client.CallOption) (*ConfirmPaymentResponse, error)
-	ConfirmPaymentRevert(ctx context.Context, in *PayNotifyRequest, opts ...client.CallOption) (*ConfirmPaymentResponse, error)
 }
 
 type orderService struct {
@@ -75,41 +73,17 @@ func (c *orderService) PayNotify(ctx context.Context, in *PayNotifyRequest, opts
 	return out, nil
 }
 
-func (c *orderService) ConfirmPayment(ctx context.Context, in *PayNotifyRequest, opts ...client.CallOption) (*ConfirmPaymentResponse, error) {
-	req := c.c.NewRequest(c.name, "Order.ConfirmPayment", in)
-	out := new(ConfirmPaymentResponse)
-	err := c.c.Call(ctx, req, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *orderService) ConfirmPaymentRevert(ctx context.Context, in *PayNotifyRequest, opts ...client.CallOption) (*ConfirmPaymentResponse, error) {
-	req := c.c.NewRequest(c.name, "Order.ConfirmPaymentRevert", in)
-	out := new(ConfirmPaymentResponse)
-	err := c.c.Call(ctx, req, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // Server API for Order service
 
 type OrderHandler interface {
 	GetOrderById(context.Context, *OrderId, *OrderInfo) error
 	PayNotify(context.Context, *PayNotifyRequest, *PayNotifyResponse) error
-	ConfirmPayment(context.Context, *PayNotifyRequest, *ConfirmPaymentResponse) error
-	ConfirmPaymentRevert(context.Context, *PayNotifyRequest, *ConfirmPaymentResponse) error
 }
 
 func RegisterOrderHandler(s server.Server, hdlr OrderHandler, opts ...server.HandlerOption) error {
 	type order interface {
 		GetOrderById(ctx context.Context, in *OrderId, out *OrderInfo) error
 		PayNotify(ctx context.Context, in *PayNotifyRequest, out *PayNotifyResponse) error
-		ConfirmPayment(ctx context.Context, in *PayNotifyRequest, out *ConfirmPaymentResponse) error
-		ConfirmPaymentRevert(ctx context.Context, in *PayNotifyRequest, out *ConfirmPaymentResponse) error
 	}
 	type Order struct {
 		order
@@ -128,12 +102,4 @@ func (h *orderHandler) GetOrderById(ctx context.Context, in *OrderId, out *Order
 
 func (h *orderHandler) PayNotify(ctx context.Context, in *PayNotifyRequest, out *PayNotifyResponse) error {
 	return h.OrderHandler.PayNotify(ctx, in, out)
-}
-
-func (h *orderHandler) ConfirmPayment(ctx context.Context, in *PayNotifyRequest, out *ConfirmPaymentResponse) error {
-	return h.OrderHandler.ConfirmPayment(ctx, in, out)
-}
-
-func (h *orderHandler) ConfirmPaymentRevert(ctx context.Context, in *PayNotifyRequest, out *ConfirmPaymentResponse) error {
-	return h.OrderHandler.ConfirmPaymentRevert(ctx, in, out)
 }
