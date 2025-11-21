@@ -2,20 +2,14 @@ package infrastructure
 
 import (
 	"fmt"
-	"github.com/go-micro/plugins/v4/client/grpc"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence"
 	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction"
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction/dtm"
-	"github.com/zhanshen02154/order/proto/product"
-	"go-micro.dev/v4/client"
 	"go-micro.dev/v4/logger"
-	"go-micro.dev/v4/registry"
-	"go-micro.dev/v4/selector"
 	"gorm.io/gorm"
-	"time"
 )
 
 type ServiceContext struct {
@@ -24,11 +18,10 @@ type ServiceContext struct {
 	Conf            *config.SysConfig
 	db              *gorm.DB
 	OrderRepository repository.IOrderRepository
-	ProductClient   product.ProductService
 	Dtm             *dtm.Server
 }
 
-func NewServiceContext(conf *config.SysConfig, serviceReg registry.Registry) (*ServiceContext, error) {
+func NewServiceContext(conf *config.SysConfig) (*ServiceContext, error) {
 	db, err := persistence.InitDB(&conf.Database)
 	if err != nil {
 		return nil, err
@@ -40,29 +33,12 @@ func NewServiceContext(conf *config.SysConfig, serviceReg registry.Registry) (*S
 		logger.Fatalf(fmt.Sprintf("failed to load lock manager: %v", err))
 		return nil, err
 	}
-
-	// 初始化商品服务客户端
-	grpcClient := grpc.NewClient(
-		client.Selector(
-			selector.NewSelector(
-				selector.Registry(serviceReg),
-				selector.SetStrategy(selector.RoundRobin),
-			),
-		),
-		client.Registry(serviceReg),
-		client.PoolSize(500),
-		client.PoolTTL(5*time.Minute),
-		client.RequestTimeout(5*time.Second),
-		client.DialTimeout(15*time.Second),
-	)
-	productClient := product.NewProductService(conf.Consumer.Product.ServiceName, grpcClient)
 	return &ServiceContext{
 		TxManager:       gorm2.NewGormTransactionManager(db),
 		LockManager:     lockMgr,
 		Conf:            conf,
 		db:              db,
 		OrderRepository: gorm2.NewOrderRepository(db),
-		ProductClient:   productClient,
 		Dtm:             dtm.NewServer(conf.Transaction.Host),
 	}, nil
 }

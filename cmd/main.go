@@ -56,7 +56,7 @@ func main() {
 	//defer io.Close()
 	//opetracing2.SetGlobalTracer(t)
 
-	serviceContext, err := infrastructure.NewServiceContext(&confInfo, consulRegistry)
+	serviceContext, err := infrastructure.NewServiceContext(&confInfo)
 	defer serviceContext.Close()
 	if err != nil {
 		logger.Fatalf("error to load service context: %s", err)
@@ -74,13 +74,16 @@ func main() {
 		runtime.SetCPUProfileRate(1)
 		runtime.SetMutexProfileFraction(1)
 		go func() {
-			if err = http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
-				logger.Fatalf("pprof服务器启动失败")
+			if err := http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
+				logger.Fatalf("pprof服务器启动失败: %s", err)
+				return
+			}else {
+				logger.Info("pprof启动成功")
 			}
 			logger.Info("pprof服务器已关闭")
+			return
 		}()
 	}
-
 	//tableInit.InitTable()
 
 	//common.PrometheusBoot(PrometheusPort)
