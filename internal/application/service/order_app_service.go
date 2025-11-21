@@ -40,11 +40,11 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 // 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
 	lock, err := appService.serviceContext.LockManager.NewLock(ctx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo), 60)
-	defer lock.UnLock(ctx)
 	if err != nil {
 		return err
 	}
 	ok, err := lock.Lock(ctx)
+	defer lock.UnLock(ctx)
 	if err != nil {
 		return err
 	}
