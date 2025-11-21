@@ -1,11 +1,11 @@
 package config
 
 type SysConfig struct {
-	Service  ServiceInfo `json:"service" yaml:"service"`
-	Database MySqlConfig `json:"database" yaml:"database"`
-	Consul   ConsulInfo  `json:"consul" yaml:"consul"`
-	Etcd     Etcd        `json:"etcd" yaml:"etcd"`
-	Consumer Consumer    `json:"consumer" yaml:"consumer"`
+	Service     ServiceInfo `json:"service" yaml:"service"`
+	Database    MySqlConfig `json:"database" yaml:"database"`
+	Consul      ConsulInfo  `json:"consul" yaml:"consul"`
+	Etcd        Etcd        `json:"etcd" yaml:"etcd"`
+	Consumer    Consumer    `json:"consumer" yaml:"consumer"`
 	Transaction Transaction `yaml:"transaction" json:"transaction"`
 }
 
@@ -59,12 +59,11 @@ type Consumer struct {
 }
 
 type Product struct {
-	ClientName  string `json:"client_name" yaml:"client_name"`
-	ServiceName string `json:"service_name" yaml:"service_name"`
+	Addr        string `json:"addr" yaml:"addr"`
 }
 
 // 事务管理
 type Transaction struct {
 	Driver string `json:"driver" yaml:"driver"`
-	Host string `json:"host" yaml:"host"`
+	Host   string `json:"host" yaml:"host"`
 }
