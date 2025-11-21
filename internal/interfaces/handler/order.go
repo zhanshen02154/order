@@ -2,13 +2,12 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"github.com/zhanshen02154/order/internal/application/service"
 	"github.com/zhanshen02154/order/pkg/swap"
 	"github.com/zhanshen02154/order/proto/order"
-	"go-micro.dev/v4/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"net/http"
 )
 
 type OrderHandler struct {
@@ -31,31 +30,11 @@ func (o *OrderHandler) GetOrderById(ctx context.Context, request *order.OrderId,
 func (o *OrderHandler) PayNotify(ctx context.Context, in *order.PayNotifyRequest, resp *order.PayNotifyResponse) error {
 	err := o.OrderAppService.PayNotify(ctx, in)
 	if err != nil {
-		return errors.New(in.OutTradeNo, err.Error(), http.StatusPreconditionFailed)
+		resp.StatusCode = "9999"
+		resp.Msg = fmt.Sprintf("error to notify: %s", err.Error())
+	}else {
+		resp.StatusCode = "0000"
+		resp.Msg = "SUCCESS"
 	}
-	resp.StatusCode = "0000"
-	resp.Msg = "SUCCESS"
-	return nil
-}
-
-func (o *OrderHandler) ConfirmPayment(ctx context.Context, in *order.PayNotifyRequest, out *order.ConfirmPaymentResponse) error {
-	err := o.OrderAppService.ConfirmPayment(ctx, in)
-	if err != nil {
-		return errors.New(in.OutTradeNo, err.Error(), http.StatusPreconditionFailed)
-	}
-	out.Msg = "SUCCESS"
-	out.StatusCode = "0000"
-	out.Revert = false
-	return nil
-}
-
-func (o *OrderHandler) ConfirmPaymentRevert(ctx context.Context, in *order.PayNotifyRequest, out *order.ConfirmPaymentResponse) error {
-	err := o.OrderAppService.ConfirmPaymentRevert(ctx, in)
-	if err != nil {
-		return errors.New(in.OutTradeNo, err.Error(), http.StatusPreconditionFailed)
-	}
-	out.Msg = "SUCCESS"
-	out.StatusCode = "0000"
-	out.Revert = true
 	return nil
 }

@@ -45,10 +45,14 @@ func (orderRepo *OrderRepository) UpdatePayOrder(ctx context.Context, orderInfo 
 	if !ok {
 		db = orderRepo.db.WithContext(ctx)
 	}
-	return db.Debug().Model(&model.Order{}).Where("id = ?", orderInfo.Id).Updates(model.Order{
-		PayStatus: orderInfo.PayStatus,
-		PayTime:   orderInfo.PayTime,
-	}).Error
+	res := db.Debug().Model(orderInfo).Select("pay_time", "pay_status").Updates(orderInfo)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // 订单确认支付
