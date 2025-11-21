@@ -6,6 +6,7 @@ type SysConfig struct {
 	Consul   ConsulInfo  `json:"consul" yaml:"consul"`
 	Etcd     Etcd        `json:"etcd" yaml:"etcd"`
 	Consumer Consumer    `json:"consumer" yaml:"consumer"`
+	Transaction Transaction `yaml:"transaction" json:"transaction"`
 }
 
 // 服务信息
@@ -60,4 +61,10 @@ type Consumer struct {
 type Product struct {
 	ClientName  string `json:"client_name" yaml:"client_name"`
 	ServiceName string `json:"service_name" yaml:"service_name"`
+}
+
+// 事务管理
+type Transaction struct {
+	Driver string `json:"driver" yaml:"driver"`
+	Host string `json:"host" yaml:"host"`
 }
