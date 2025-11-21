@@ -102,8 +102,6 @@ func main() {
 		//添加限流
 		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.Qps)),
 
-		// 添加DTM返回结果包装器以实现DTM识别处理正确与否
-		//micro.WrapHandler(dtm.NewHandlerWrapper()),
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.BeforeStop(func() error {
