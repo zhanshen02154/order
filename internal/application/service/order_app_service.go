@@ -7,14 +7,14 @@ import (
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/service"
 	"github.com/zhanshen02154/order/internal/infrastructure"
-	"github.com/zhanshen02154/order/pkg/swap"
 	"github.com/zhanshen02154/order/proto/order"
-	"github.com/zhanshen02154/order/proto/product"
 )
 
 type IOrderApplicationService interface {
 	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
 	PayNotify(ctx context.Context, req *order.PayNotifyRequest) error
+	ConfirmPayment(ctx context.Context, req *order.PayNotifyRequest) error
+	ConfirmPaymentRevert(ctx context.Context, req *order.PayNotifyRequest) error
 }
 
 type OrderApplicationService struct {
@@ -28,6 +28,7 @@ func NewOrderApplicationService(
 ) IOrderApplicationService {
 	return &OrderApplicationService{
 		orderDataService: service.NewOrderDataService(serviceContext.OrderRepository),
+		serviceContext: serviceContext,
 	}
 }
 
@@ -38,40 +39,44 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 
 // 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
-	return appService.serviceContext.TxManager.ExecuteTransaction(ctx, func(ctx context.Context) error {
-		orderInfo, err := appService.serviceContext.OrderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
-		if err != nil {
-			return err
-		}
-		if orderInfo.PayTime.Unix() > 0 && orderInfo.PayStatus == 3 {
-			return nil
-		}
-		if len(orderInfo.OrderDetail) == 0 {
-			return errors.New(fmt.Sprintf("pay notify error on order_id: %d: no details found", orderInfo.Id))
-		}
+	lock, err := appService.serviceContext.LockManager.NewLock(ctx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo), 60)
+	defer lock.UnLock(ctx)
+	if err != nil {
+		return err
+	}
+	ok, err := lock.Lock(ctx)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("加锁失败")
+	}
 
-		// 执行具体业务逻辑
-		err = appService.orderDataService.PayNotify(ctx, orderInfo, req)
-		if err != nil {
-			return err
-		}
-
-		// 调用客户端
-		productDetails := product.OrderDetailReq{
-			OrderId: orderInfo.Id,
-		}
-		err = swap.ConvertTo(orderInfo.OrderDetail, &productDetails.Products)
-		if err != nil {
-			return err
-		}
-		resp, err := appService.serviceContext.ProductClient.DeductInvetory(ctx, &productDetails)
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != "0000" {
-			return errors.New("failed to deduct invetory")
-		}
-
+	orderInfo, err := appService.serviceContext.OrderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
+	if err != nil {
+		return err
+	}
+	if orderInfo.PayTime.Time.Unix() > 0 && orderInfo.PayStatus == 3 {
 		return nil
+	}
+	addr := "127.0.0.1:9000"
+	saga := appService.serviceContext.Dtm.BeginGrpcSaga(ctx).
+		Add(addr + "/go.micro.service.Order/ConfirmPayment", addr + "/go.micro.service.Order/ConfirmPaymentRevert", req)
+	saga.RetryLimit = 3
+	saga.TimeoutToFail = 30
+	err =  saga.Submit()
+	return err
+}
+
+func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, req *order.PayNotifyRequest) error {
+	return appService.serviceContext.TxManager.ExecuteWithBarrier(ctx, func(txCtx context.Context) error {
+		return appService.orderDataService.ConfirmPayment(txCtx, req)
 	})
 }
+
+func (appService *OrderApplicationService) ConfirmPaymentRevert(ctx context.Context, req *order.PayNotifyRequest) error {
+	return appService.serviceContext.TxManager.ExecuteWithBarrier(ctx, func(txCtx context.Context) error {
+		return appService.orderDataService.ConfirmPaymentRevert(txCtx, req)
+	})
+}
+

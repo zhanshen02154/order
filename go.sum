@@ -201,6 +201,10 @@ github.com/go-micro/plugins/v4/config/source/consul v1.2.0 h1:AZ2L6vP8Cy3Sh2VI/9
 github.com/go-micro/plugins/v4/config/source/consul v1.2.0/go.mod h1:/v+vqsTJX0mZSahKKxcnAVF+TxPYRKbZBaOt9bI1YzI=
 github.com/go-micro/plugins/v4/registry/consul v1.2.1 h1:3wctYMtstwQLCjoJ1HA6mKGGFF1hcdKDv5MzHakB1jE=
 github.com/go-micro/plugins/v4/registry/consul v1.2.1/go.mod h1:wTat7/K9XQ+i64VbbcMYFcEwipYfSgJM51HcA/sgsM4=
+github.com/go-micro/plugins/v4/server/grpc v1.2.0 h1:lXfM+/0oE/u1g0hVBYsvbP4lYOYXYOmwf5qH7ghi7Cc=
+github.com/go-micro/plugins/v4/server/grpc v1.2.0/go.mod h1:+Ah9Pf/vMSXxBM3fup/hc3N+zN2as3nIpcRaR4sBjnY=
+github.com/go-micro/plugins/v4/transport/grpc v1.2.0 h1:ddprv15OFg+NTAtee4lYaWfuzdRNV5SuY8b/aYBKsj0=
+github.com/go-micro/plugins/v4/transport/grpc v1.2.0/go.mod h1:jGbXQgVurnMqPF671JLQy76xV1QOv82OWYqRkVeFKUo=
 github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber v1.2.0 h1:VaiAfA2F0tS0ORn0CVSY3UxWH7jjUkWiL7T7KBa7JoM=
 github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber v1.2.0/go.mod h1:66L6PV2/J/qh+YNgOIpmduyuOZCvYwEKDrSknsJMzDI=
 github.com/go-redis/redis/v8 v8.11.5 h1:AcZZR7igkdvfVmQTPnu9WE37LRrO/YrBH5zWyjDC0oI=

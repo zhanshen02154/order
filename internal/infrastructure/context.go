@@ -8,6 +8,7 @@ import (
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence"
 	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
 	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction"
+	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction/dtm"
 	"github.com/zhanshen02154/order/proto/product"
 	"go-micro.dev/v4/client"
 	"go-micro.dev/v4/logger"
@@ -24,6 +25,7 @@ type ServiceContext struct {
 	db              *gorm.DB
 	OrderRepository repository.IOrderRepository
 	ProductClient   product.ProductService
+	Dtm             *dtm.Server
 }
 
 func NewServiceContext(conf *config.SysConfig, serviceReg registry.Registry) (*ServiceContext, error) {
@@ -61,6 +63,7 @@ func NewServiceContext(conf *config.SysConfig, serviceReg registry.Registry) (*S
 		db:              db,
 		OrderRepository: gorm2.NewOrderRepository(db),
 		ProductClient:   productClient,
+		Dtm:             dtm.NewServer(conf.Transaction.Host),
 	}, nil
 }
 

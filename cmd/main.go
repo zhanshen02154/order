@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
+	"github.com/go-micro/plugins/v4/transport/grpc"
 	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
 	appservice "github.com/zhanshen02154/order/internal/application/service"
 	config2 "github.com/zhanshen02154/order/internal/config"
@@ -9,10 +11,12 @@ import (
 	config3 "github.com/zhanshen02154/order/internal/infrastructure/config"
 	"github.com/zhanshen02154/order/internal/infrastructure/registry"
 	"github.com/zhanshen02154/order/internal/interfaces/handler"
+	"github.com/zhanshen02154/order/pkg/codec"
 	"github.com/zhanshen02154/order/proto/order"
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/config"
 	"go-micro.dev/v4/logger"
+	"go-micro.dev/v4/server"
 	"net/http"
 	"runtime"
 	"time"
@@ -83,15 +87,23 @@ func main() {
 
 	// New Service
 	service := micro.NewService(
-		micro.Name(confInfo.Service.Name),
-		micro.Version(confInfo.Service.Version),
-		micro.Address(confInfo.Service.Listen),
-		micro.Registry(consulRegistry),
-		micro.RegisterTTL(time.Duration(confInfo.Consul.RegisterTtl)*time.Second),
-		micro.RegisterInterval(time.Duration(confInfo.Consul.RegisterInterval)*time.Second),
+		micro.Server(grpc2.NewServer(
+			server.Name(confInfo.Service.Name),
+			server.Version(confInfo.Service.Version),
+			server.Address(confInfo.Service.Listen),
+			server.Transport(grpc.NewTransport()),
+			server.Registry(consulRegistry),
+			server.RegisterTTL(time.Duration(confInfo.Consul.RegisterTtl)*time.Second),
+			server.RegisterInterval(time.Duration(confInfo.Consul.RegisterInterval)*time.Second),
+			//server.WrapHandler(dtm.NewHandlerWrapper),
+			grpc2.Codec("application/grpc+dtm_raw", codec.NewDtmCodec()),
+			)),
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
 		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.Qps)),
+
+		// 添加DTM返回结果包装器以实现DTM识别处理正确与否
+		//micro.WrapHandler(dtm.NewHandlerWrapper()),
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.BeforeStop(func() error {
