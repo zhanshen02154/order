@@ -9,8 +9,6 @@ import "google/protobuf/timestamp.proto";
 service Order {
   rpc GetOrderById(OrderId) returns (OrderInfo) {}
   rpc PayNotify(PayNotifyRequest) returns (PayNotifyResponse) {}
-  rpc ConfirmPayment(PayNotifyRequest) returns (ConfirmPaymentResponse) {}
-  rpc ConfirmPaymentRevert(PayNotifyRequest) returns (ConfirmPaymentResponse) {}
 }
 
 message OrderId {
@@ -79,11 +77,4 @@ message PayNotifyRequest {
 message PayNotifyResponse {
   string StatusCode = 1;
   string Msg = 2;
-}
-
-// 确认支付返回参数
-message ConfirmPaymentResponse {
-  bool Revert = 1;
-  string StatusCode = 2;
-  string Msg = 3;
 }
