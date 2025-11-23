@@ -47,22 +47,22 @@ func main() {
 	defer func() {
 		err = configInfo.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err)
 		}
 	}()
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 		return
 	}
 	err = configInfo.Load(consulSource)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 		return
 	}
 
 	var confInfo appconfig.SysConfig
 	if err = configInfo.Get("order").Scan(&confInfo); err != nil {
-		log.Fatal(err)
+		log.Error(err)
 		return
 	}
 
@@ -78,14 +78,14 @@ func main() {
 
 	db, err := persistence.InitDB(&confInfo.Database)
 	if err != nil {
-		log.Fatalf("failed to load gorm framework", err)
+		log.Errorf("failed to load gorm framework", err)
 		return
 	}
 
 	// 健康检查
 	probeServer := infrastructure.NewProbeServer(confInfo.Service.HeathCheckAddr, db)
 	if err = probeServer.Start(); err != nil {
-		log.Fatalf("健康检查服务器启动失败")
+		log.Error("健康检查服务器启动失败")
 		return
 	}
 	if confInfo.Service.Debug {
@@ -94,7 +94,7 @@ func main() {
 		runtime.SetMutexProfileFraction(1)
 		go func() {
 			if err = http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("pprof服务器启动失败")
+				log.Error("pprof服务器启动失败")
 			}
 			log.Info("pprof服务器已关闭")
 		}()
@@ -169,11 +169,11 @@ func main() {
 	// Register Handler
 	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 	}
 
 	if err = service.Run(); err != nil {
-		log.Fatal(err)
+		log.Error(err)
 	}
 
 }
