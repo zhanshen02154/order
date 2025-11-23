@@ -46,7 +46,7 @@ func TestLock(t *testing.T) {
 func teardown() {
 	err := lockManager.Close()
 	if err != nil {
-		logger.Fatal(err)
+		logger.Error(err)
 	} else {
 		logger.Info("lock manager closed")
 	}

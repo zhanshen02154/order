@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"runtime"
+	"time"
+
 	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
 	"github.com/go-micro/plugins/v4/transport/grpc"
 	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
@@ -17,33 +21,30 @@ import (
 	"go-micro.dev/v4/config"
 	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/server"
-	"net/http"
-	"runtime"
-	"time"
 )
 
 func main() {
 	consulSource := config3.LoadConsulCOnfig()
 	configInfo, err := config.NewConfig()
+	if err != nil {
+		logger.Error(err)
+		return
+	}
 	defer func() {
 		err = configInfo.Close()
 		if err != nil {
-			logger.Fatal(err)
+			logger.Error(err)
 		}
 	}()
-	if err != nil {
-		logger.Fatal(err)
-		return
-	}
 	err = configInfo.Load(consulSource)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Error(err)
 		return
 	}
 
 	var confInfo config2.SysConfig
 	if err := configInfo.Get("order").Scan(&confInfo); err != nil {
-		logger.Fatal(err)
+		logger.Error(err)
 	}
 
 	//注册中心
@@ -57,16 +58,16 @@ func main() {
 	//opetracing2.SetGlobalTracer(t)
 
 	serviceContext, err := infrastructure.NewServiceContext(&confInfo)
-	defer serviceContext.Close()
 	if err != nil {
-		logger.Fatalf("error to load service context: %s", err)
+		logger.Errorf("error to load service context: %s", err)
 		return
 	}
+	defer serviceContext.Close()
 
 	// 健康检查
 	probeServer := infrastructure.NewProbeServer(confInfo.Service.HeathCheckAddr, serviceContext)
 	if err = probeServer.Start(); err != nil {
-		logger.Fatalf("健康检查服务器启动失败")
+		logger.Errorf("健康检查服务器启动失败")
 		return
 	}
 	if confInfo.Service.Debug {
@@ -75,9 +76,9 @@ func main() {
 		runtime.SetMutexProfileFraction(1)
 		go func() {
 			if err := http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
-				logger.Fatalf("pprof服务器启动失败: %s", err)
+				logger.Errorf("pprof服务器启动失败: %s", err)
 				return
-			}else {
+			} else {
 				logger.Info("pprof启动成功")
 			}
 			logger.Info("pprof服务器已关闭")
@@ -100,7 +101,7 @@ func main() {
 			server.RegisterInterval(time.Duration(confInfo.Consul.RegisterInterval)*time.Second),
 			//server.WrapHandler(dtm.NewHandlerWrapper),
 			grpc2.Codec("application/grpc+dtm_raw", codec.NewDtmCodec()),
-			)),
+		)),
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
 		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.Qps)),
@@ -124,10 +125,10 @@ func main() {
 	// Register Handler
 	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
 	if err != nil {
-		logger.Fatal(err)
+		logger.Error(err)
 	}
 
 	if err = service.Run(); err != nil {
-		logger.Fatal(err)
+		logger.Error(err)
 	}
 }

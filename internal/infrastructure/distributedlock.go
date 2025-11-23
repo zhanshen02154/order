@@ -72,7 +72,7 @@ func (l *EtcdLock) UnLock(ctx context.Context) (bool, error) {
 	defer func() {
 		err := l.session.Close()
 		if err != nil {
-			logger.Fatalf(fmt.Sprintf("prefix key: %s session close failed: %s", l.prefix, err))
+			logger.Errorf(fmt.Sprintf("prefix key: %s session close failed: %s", l.prefix, err))
 		}
 	}()
 	if err := l.mutex.Unlock(ctx); err != nil {
