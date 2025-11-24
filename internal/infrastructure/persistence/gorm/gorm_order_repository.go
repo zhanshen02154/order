@@ -6,7 +6,6 @@ import (
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type OrderRepository struct {
@@ -24,16 +23,15 @@ func (orderRepo *OrderRepository) FindOrderByID(ctx context.Context, id int64) (
 }
 
 func (orderRepo *OrderRepository) FindPayOrderByCode(ctx context.Context, orderCode string) (*model.Order, error) {
-	db := GetDBFromContext(ctx, orderRepo.db)
 	payOrderInfo := &model.Order{}
-	err := db.Debug().Clauses(clause.Locking{Strength: "UPDATE"}).Table("orders").Select("id", "order_code", "pay_status", "pay_time").Where("order_code = ?", orderCode).First(payOrderInfo).Error
+	err := orderRepo.db.WithContext(ctx).Debug().Table("orders").Select("id", "order_code", "pay_status", "pay_time").Where("order_code = ?", orderCode).First(payOrderInfo).Error
 	if err != nil {
 		return nil, err
 	}
 	if payOrderInfo == nil {
 		return nil, errors.New("订单不存在！")
 	}
-	err = db.Debug().Clauses(clause.Locking{Strength: "UPDATE"}).Table("order_details").
+	err = orderRepo.db.WithContext(ctx).Debug().Table("order_details").
 		Where("order_id = ?", payOrderInfo.Id).Select("product_id", "product_num", "product_size_id", "order_id").Find(&payOrderInfo.OrderDetail).Error
 	if err != nil {
 		return nil, err
@@ -43,9 +41,35 @@ func (orderRepo *OrderRepository) FindPayOrderByCode(ctx context.Context, orderC
 
 // 更新订单状态
 func (orderRepo *OrderRepository) UpdatePayOrder(ctx context.Context, orderInfo *model.Order) error {
-	db := GetDBFromContext(ctx, orderRepo.db)
-	return db.Debug().Model(&model.Order{}).Where("id = ?", orderInfo.Id).Updates(model.Order{
+	db, ok := ctx.Value(txKey{}).(*gorm.DB)
+	if !ok {
+		db = orderRepo.db.WithContext(ctx)
+	}
+	res := db.Debug().Model(orderInfo).Select("pay_time", "pay_status").Updates(orderInfo)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// 订单确认支付
+func (orderRepo *OrderRepository) ConfirmPaymentOrder(ctx context.Context, orderInfo *model.Order) error {
+	db, ok := ctx.Value(txKey{}).(*gorm.DB)
+	if !ok {
+		db = orderRepo.db.WithContext(ctx)
+	}
+	res := db.Debug().Model(orderInfo).Select("pay_status", "pay_time").Where("order_code = ?", orderInfo.OrderCode).Updates(model.Order{
 		PayStatus: orderInfo.PayStatus,
-		PayTime: orderInfo.PayTime,
-	}).Error
+		PayTime:   orderInfo.PayTime,
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
