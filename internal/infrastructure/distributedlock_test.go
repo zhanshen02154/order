@@ -1,15 +1,14 @@
-package tests
+package infrastructure
 
 import (
 	"context"
 	"github.com/bmizerany/assert"
 	"github.com/zhanshen02154/order/internal/config"
-	"github.com/zhanshen02154/order/internal/infrastructure"
 	"go-micro.dev/v4/logger"
 	"testing"
 )
 
-var lockManager infrastructure.LockManager
+var lockManager LockManager
 
 func setup() {
 	etcdConf := &config.Etcd{
@@ -17,15 +16,14 @@ func setup() {
 		DialTimeout:      30,
 		Username:         "order",
 		Password:         "",
-		AutoSyncInterval: 5,
+		AutoSyncInterval: 500,
 		Prefix:           "/micro/order/",
 	}
-	lockManager, _ = infrastructure.NewEtcdLockManager(etcdConf)
+	lockManager, _ = NewEtcdLockManager(etcdConf)
 }
 
 func TestLock(t *testing.T) {
 	setup()
-	defer teardown()
 	lockkey := "testKey"
 	ctx := context.Background()
 	lock, err := lockManager.NewLock(ctx, lockkey, 30)
@@ -33,14 +31,12 @@ func TestLock(t *testing.T) {
 		logger.Info(err)
 		return
 	}
-	flag, err := lock.Lock(ctx)
-	defer func() {
-		if lock != nil {
-			lock.UnLock(ctx)
-		}
-	}()
+	flag, err := lock.TryLock(ctx)
+	unlockFlag, unlockErr := lock.UnLock(ctx)
 	assert.Equal(t, true, flag)
 	assert.Equal(t, nil, err)
+	assert.Equal(t, true, unlockFlag)
+	assert.Equal(t, nil, unlockErr)
 }
 
 func teardown() {
