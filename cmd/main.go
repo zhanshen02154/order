@@ -67,7 +67,7 @@ func main() {
 	// 健康检查
 	probeServer := infrastructure.NewProbeServer(confInfo.Service.HeathCheckAddr, serviceContext)
 	if err = probeServer.Start(); err != nil {
-		logger.Errorf("健康检查服务器启动失败")
+		logger.Error("健康检查服务器启动失败")
 		return
 	}
 	if confInfo.Service.Debug {
