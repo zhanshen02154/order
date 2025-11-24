@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"net/http"
-	"runtime"
 	"time"
 
 	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
@@ -14,6 +12,7 @@ import (
 	"github.com/zhanshen02154/order/internal/infrastructure"
 	config3 "github.com/zhanshen02154/order/internal/infrastructure/config"
 	"github.com/zhanshen02154/order/internal/infrastructure/registry"
+	localserver "github.com/zhanshen02154/order/internal/infrastructure/server"
 	"github.com/zhanshen02154/order/internal/interfaces/handler"
 	"github.com/zhanshen02154/order/pkg/codec"
 	"github.com/zhanshen02154/order/proto/order"
@@ -65,25 +64,15 @@ func main() {
 	defer serviceContext.Close()
 
 	// 健康检查
-	probeServer := infrastructure.NewProbeServer(confInfo.Service.HeathCheckAddr, serviceContext)
+	probeServer := localserver.NewProbeServer(confInfo.Service.HeathCheckAddr, serviceContext)
 	if err = probeServer.Start(); err != nil {
 		logger.Error("健康检查服务器启动失败")
 		return
 	}
+
+	var pprofSrv *localserver.PprofServer
 	if confInfo.Service.Debug {
-		runtime.SetBlockProfileRate(1)
-		runtime.SetCPUProfileRate(1)
-		runtime.SetMutexProfileFraction(1)
-		go func() {
-			if err := http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
-				logger.Errorf("pprof服务器启动失败: %s", err)
-				return
-			} else {
-				logger.Info("pprof启动成功")
-			}
-			logger.Info("pprof服务器已关闭")
-			return
-		}()
+		pprofSrv = localserver.NewPprofServer(":6060")
 	}
 	//tableInit.InitTable()
 
@@ -108,13 +97,22 @@ func main() {
 
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
+		micro.AfterStart(func() error {
+			pprofSrv.Start()
+			return nil
+		}),
 		micro.BeforeStop(func() error {
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			logger.Info("收到关闭信号，正在停止健康检查服务器...")
-			err = probeServer.Shutdown(shutdownCtx)
+			err := probeServer.Shutdown(shutdownCtx)
 			if err != nil {
 				return err
+			}
+			if confInfo.Service.Debug {
+				if err := pprofSrv.Close(shutdownCtx); err != nil {
+					logger.Error("pprof服务器关闭错误: ", err)
+				}
 			}
 			return nil
 		}),
