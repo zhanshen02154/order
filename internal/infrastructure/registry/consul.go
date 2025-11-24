@@ -1,10 +1,10 @@
 package registry
 
 import (
+	"github.com/go-micro/plugins/v4/registry/consul"
 	"github.com/hashicorp/consul/api"
-	"github.com/micro/go-micro/v2/registry"
-	"github.com/micro/go-plugins/registry/consul/v2"
 	"github.com/zhanshen02154/order/internal/config"
+	"go-micro.dev/v4/registry"
 	"time"
 )
 
@@ -15,10 +15,9 @@ func ConsulRegister(confInfo *config.ConsulInfo) registry.Registry {
 	}
 	return consul.NewRegistry(
 		registry.Addrs(confInfo.RegistryAddrs...),
-		registry.Timeout(time.Duration(confInfo.Timeout) * time.Second),
+		registry.Timeout(time.Duration(confInfo.Timeout)*time.Second),
 		consul.QueryOptions(queryOpts),
 		consul.Config(&api.Config{
-			WaitTime:   time.Duration(60) * time.Second,
-		}),
-	)
+			WaitTime: time.Duration(60) * time.Second,
+		}))
 }
