@@ -20,8 +20,9 @@ type DistributedLock interface {
 
 // ETCD锁
 type EtcdLock struct {
-	session  *concurrency.Session
-	mutex    *concurrency.Mutex
+	session    *concurrency.Session
+	mutex      *concurrency.Mutex
+	cancelFunc context.CancelFunc
 }
 
 // 获取键名
@@ -48,9 +49,12 @@ func (l *EtcdLock) TryLock(ctx context.Context) (bool, error) {
 // 解锁
 func (l *EtcdLock) UnLock(ctx context.Context) (bool, error) {
 	defer func() {
+		if l.cancelFunc != nil {
+			l.cancelFunc()
+		}
 		err := l.session.Close()
 		if err != nil {
-			logger.Errorf(fmt.Sprintf("prefix key: %s session close failed: %s", l.mutex.Key(), err))
+			logger.Errorf("prefix key: %s session close failed: %s", l.mutex.Key(), err)
 		}
 	}()
 	if err := l.mutex.Unlock(ctx); err != nil {
@@ -78,29 +82,28 @@ func (elm *EtcdLockManager) Close() error {
 
 // 创建锁
 func (elm *EtcdLockManager) NewLock(ctx context.Context, key string, ttl int) (DistributedLock, error) {
-	session, err := concurrency.NewSession(elm.ecli, concurrency.WithTTL(ttl), concurrency.WithContext(ctx))
+	sessionCtx, sessionCanctlCtx := context.WithCancel(context.Background())
+	session, err := concurrency.NewSession(elm.ecli, concurrency.WithTTL(ttl), concurrency.WithContext(sessionCtx))
 	if err != nil {
-		logger.Infof("failed to create session: %v", err)
-		if err != nil {
-			return nil, err
-		}
+		sessionCanctlCtx()
 		return nil, err
 	}
 	mutex := concurrency.NewMutex(session, fmt.Sprintf("%slock/%s", elm.prefix, key))
 	return &EtcdLock{
-		session: session,
-		mutex: mutex,
+		session:    session,
+		mutex:      mutex,
+		cancelFunc: sessionCanctlCtx,
 	}, nil
 }
 
 // 创建分布式锁
 func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	client, err := clientv3.New(clientv3.Config{
-		Endpoints:        conf.Hosts,
+		Endpoints: conf.Hosts,
 		//AutoSyncInterval: time.Duration(conf.AutoSyncInterval) * time.Second,
-		DialTimeout:      time.Duration(conf.DialTimeout) * time.Second,
-		Username:         conf.Username,
-		Password:         conf.Password,
+		DialTimeout: time.Duration(conf.DialTimeout) * time.Second,
+		Username:    conf.Username,
+		Password:    conf.Password,
 	})
 	if err != nil {
 		return nil, err
