@@ -101,15 +101,20 @@ func (elm *EtcdLockManager) NewLock(ctx context.Context, key string) (Distribute
 func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints: conf.Hosts,
-		//AutoSyncInterval: time.Duration(conf.AutoSyncInterval) * time.Second,
+		AutoSyncInterval: time.Duration(conf.AutoSyncInterval) * time.Second,
 		DialTimeout: time.Duration(conf.DialTimeout) * time.Second,
 		Username:    conf.Username,
 		Password:    conf.Password,
+		RejectOldCluster: true,
+		DialKeepAliveTime: 15 * time.Second,
+		DialKeepAliveTimeout: 5 * time.Second,
+		MaxCallRecvMsgSize: 10 * 1024 * 1024,
+		MaxCallSendMsgSize: 10 * 1024 * 1024,
 	})
 	if err != nil {
 		return nil, err
 	}
-	session, err := concurrency.NewSession(client, concurrency.WithTTL(30))
+	session, err := concurrency.NewSession(client, concurrency.WithTTL(5))
 	if err != nil {
 		client.Close()
 		return nil, err
