@@ -9,6 +9,7 @@ import (
 	"github.com/zhanshen02154/order/internal/infrastructure"
 	"github.com/zhanshen02154/order/proto/order"
 	"github.com/zhanshen02154/order/proto/product"
+	"time"
 )
 
 type IOrderApplicationService interface {
@@ -38,12 +39,14 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 
 // 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
-	lock, err := appService.serviceContext.LockManager.NewLock(ctx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo))
+	timeoutCtx, timeoutCtxFunc := context.WithTimeout(context.Background(), 30 * time.Second)
+	defer timeoutCtxFunc()
+	lock, err := appService.serviceContext.LockManager.NewLock(timeoutCtx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo))
 	if err != nil {
 		return err
 	}
-	ok, err := lock.TryLock(ctx)
-	defer lock.UnLock(ctx)
+	ok, err := lock.TryLock(timeoutCtx)
+	defer lock.UnLock(timeoutCtx)
 	if err != nil {
 		return err
 	}
