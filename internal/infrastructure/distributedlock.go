@@ -114,7 +114,7 @@ func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	session, err := concurrency.NewSession(client, concurrency.WithTTL(5))
+	session, err := concurrency.NewSession(client, concurrency.WithTTL(30))
 	if err != nil {
 		client.Close()
 		return nil, err
