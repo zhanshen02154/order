@@ -119,7 +119,7 @@ func (elm *EtcdLockManager) NewLock(ctx context.Context, key string, ttl int) (D
 func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints:        conf.Hosts,
-		AutoSyncInterval: time.Duration(conf.AutoSyncInterval) * time.Second,
+		//AutoSyncInterval: time.Duration(conf.AutoSyncInterval) * time.Second,
 		DialTimeout:      time.Duration(conf.DialTimeout) * time.Second,
 		Username:         conf.Username,
 		Password:         conf.Password,
