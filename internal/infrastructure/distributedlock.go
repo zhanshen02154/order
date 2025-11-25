@@ -104,7 +104,6 @@ func (elm *EtcdLockManager) NewLock(ctx context.Context, key string, ttl int) (D
 	session, err := concurrency.NewSession(elm.ecli, concurrency.WithTTL(ttl), concurrency.WithContext(ctx))
 	if err != nil {
 		logger.Infof("failed to create session: %v", err)
-		err = session.Close()
 		if err != nil {
 			return nil, err
 		}
