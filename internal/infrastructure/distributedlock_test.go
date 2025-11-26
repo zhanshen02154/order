@@ -26,7 +26,7 @@ func TestLock(t *testing.T) {
 	setup()
 	lockkey := "testKey"
 	ctx := context.Background()
-	lock, err := lockManager.NewLock(ctx, lockkey, 30)
+	lock, err := lockManager.NewLock(ctx, lockkey)
 	if err != nil {
 		logger.Info(err)
 		return
