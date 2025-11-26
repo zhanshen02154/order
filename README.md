@@ -4,14 +4,14 @@
 以“订单支付成功回调扣减商品库存”链路进行微服务架构演进实践，订单服务为领域驱动架构，包含领域层、应用层、基础设施层、接口层。
 
 ## 项目特点
-- 采用GRPC跨服务通信实现订单支付成功回调调用商品服务扣减库存
-- 使用自编的事务管理器结合GORM的事务完成事务处理实现数据一致性
-- 原版为配置文件不易维护故改为Consul的K/V存储
+- 突破框架限制集成DTM到Go micro
+- 原版为配置文件不易维护改为Consul的K/V存储
 - 增加K8S专用的健康检查探针
-- 原版使用的GORM 1.9.6升级为1.30.0
+- 用ETCD实现分布式锁
+- 原版的GORM 1.9.6升级为1.30.0
 - 依托GitHub结合Jenkins流水线实现CI/CD
 - 废除原版的common、config目录
-- 废除原版Dockerfile改用自编文件以适应实际业务需要
+- go micro框架由2.9.1升级到4.11.0
 
 ## 项目文档
 - [变更日志](./docs/CHANGELOG.md)
@@ -50,15 +50,16 @@
 
 ## 工作流程
 1. 客户端请求API接口
-2. Apisix接收请求，通过Consul发现服务
-3. 调用Order服务
-4. Order服务的PayNotify调用Product服务的DeductInvetory
-5. 返回结果
+2. Apisix接收请求并调用Order服务
+3. Order服务更新订单状态，启动SAGA分布式事务
+4. Order服务的PayNotify调用Product服务的DeductInvetory扣减库存，失败则用DeductInvetoryRevert做事务补偿
 
 ## 技术选型
-| 开发语言           | 开发框架            | 数据库          | 服务注册/发现      |
-|----------------|-----------------|--------------|--------------|
-| Golang 1.20.10 | Go-micro 4.11.0 | MySQL 5.7.26 | Consul 1.7.3 |
+- 开发语言：Golang 1.20.10
+- 框架：Go micro 4.11.0
+- 数据库：MySQL 5.7.26
+- 服务注册/发现：Consul 1.7.3
+- 分布式锁：ETCD 3.5.7
 
 ## 服务器配置
 | 厂商  | 配置               | 数量 | 操作系统       | Docker版本 | Kubernetes版本 |
@@ -74,7 +75,7 @@
 ```
 3. 安装Go-micro对应版本的protoc-gen-micro。
 ```bash
-  go install github.com/micro/micro/v2/cmd/protoc-gen-micro@v2.9.1
+  go install go-micro.dev/v4/cmd/micro@latest
 ```
 4. 在根目录下生成Protobuf对应的go文件及go-micro文件
 ```bash
@@ -88,5 +89,5 @@
 - 上传到Apisix之前使用如下命令生成PB文件再使用base64编码作为content参数的内容上传。
 ```bash
   protoc --include_imports --descriptor_set_out=./order.pb --proto_path=./proto --proto_path=<include path> --go_out=. --micro_out=. ./proto/order/order.proto
-  echo $(base64 -w0) > order.txt  # 上传到Apisix用的是这个文件里的内容
+  echo $(base64 -w0 order.pb) > order.txt  # 上传到Apisix用的是这个文件里的内容
 ```
