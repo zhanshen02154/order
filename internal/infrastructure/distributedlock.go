@@ -106,7 +106,7 @@ func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 		Username:    conf.Username,
 		Password:    conf.Password,
 		RejectOldCluster: true,
-		DialKeepAliveTime: 15 * time.Second,
+		DialKeepAliveTime: 30 * time.Second,
 		DialKeepAliveTimeout: 5 * time.Second,
 		MaxCallRecvMsgSize: 10 * 1024 * 1024,
 		MaxCallSendMsgSize: 10 * 1024 * 1024,
