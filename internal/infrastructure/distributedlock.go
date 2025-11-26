@@ -106,7 +106,7 @@ func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 		Username:    conf.Username,
 		Password:    conf.Password,
 		RejectOldCluster: true,
-		DialKeepAliveTime: 15 * time.Second,
+		DialKeepAliveTime: 30 * time.Second,
 		DialKeepAliveTimeout: 5 * time.Second,
 		MaxCallRecvMsgSize: 10 * 1024 * 1024,
 		MaxCallSendMsgSize: 10 * 1024 * 1024,
@@ -114,7 +114,7 @@ func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	session, err := concurrency.NewSession(client, concurrency.WithTTL(5))
+	session, err := concurrency.NewSession(client, concurrency.WithTTL(30))
 	if err != nil {
 		client.Close()
 		return nil, err
