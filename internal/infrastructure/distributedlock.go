@@ -119,6 +119,6 @@ func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 		client.Close()
 		return nil, err
 	}
-	logger.Info("ETCD was stared: ", conf.Prefix, conf.Username, conf.Password)
+	logger.Info("ETCD was stared")
 	return &EtcdLockManager{ecli: client, prefix: conf.Prefix, session: session}, nil
 }
