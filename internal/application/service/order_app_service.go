@@ -5,12 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/zhanshen02154/order/internal/domain/model"
-	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/internal/domain/service"
-	"github.com/zhanshen02154/order/internal/infrastructure/persistence/transaction"
-	"github.com/zhanshen02154/order/pkg/swap"
+	"github.com/zhanshen02154/order/internal/infrastructure"
 	"github.com/zhanshen02154/order/proto/order"
 	"github.com/zhanshen02154/order/proto/product"
+	"time"
 )
 
 type IOrderApplicationService interface {
@@ -19,19 +18,17 @@ type IOrderApplicationService interface {
 }
 
 type OrderApplicationService struct {
-	txManager        transaction.TransactionManager
 	orderDataService service.IOrderDataService
-	orderRepository  repository.IOrderRepository
-	productServiceClient product.ProductService
+	serviceContext   *infrastructure.ServiceContext
 }
 
 // 创建
-func NewOrderApplicationService(txManager transaction.TransactionManager, orderRepo repository.IOrderRepository, productSrv product.ProductService) IOrderApplicationService {
+func NewOrderApplicationService(
+	serviceContext *infrastructure.ServiceContext,
+) IOrderApplicationService {
 	return &OrderApplicationService{
-		orderDataService: service.NewOrderDataService(orderRepo),
-		orderRepository:  orderRepo,
-		txManager: txManager,
-		productServiceClient: productSrv,
+		orderDataService: service.NewOrderDataService(serviceContext.OrderRepository),
+		serviceContext: serviceContext,
 	}
 }
 
@@ -42,40 +39,51 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 
 // 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
-	return appService.txManager.ExecuteTransaction(ctx, func(ctx context.Context) error {
-		orderInfo, err := appService.orderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
-		if err != nil {
-			return err
-		}
-		if orderInfo.PayTime.Unix() > 0 && orderInfo.PayStatus == 3 {
-			return nil
-		}
-		if len(orderInfo.OrderDetail) == 0 {
-			return errors.New(fmt.Sprintf("pay notify error on order_id: %d: no details found", orderInfo.Id))
-		}
+	timeoutCtx, timeoutCtxFunc := context.WithTimeout(context.Background(), 30 * time.Second)
+	defer timeoutCtxFunc()
+	lock, err := appService.serviceContext.LockManager.NewLock(timeoutCtx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo))
+	if err != nil {
+		return err
+	}
+	ok, err := lock.TryLock(timeoutCtx)
+	defer lock.UnLock(timeoutCtx)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New(fmt.Sprintf("duplicate notify: %s", req.OutTradeNo))
+	}
 
-		// 执行具体业务逻辑
-		err = appService.orderDataService.PayNotify(ctx, orderInfo, req)
-		if err != nil {
-			return err
-		}
-
-		// 调用客户端
-		productDetails := product.OrderDetailReq{
-			OrderId: orderInfo.Id,
-		}
-		err = swap.ConvertTo(orderInfo.OrderDetail, &productDetails.Products)
-		if err != nil {
-			return err
-		}
-		resp, err := appService.productServiceClient.DeductInvetory(ctx, &productDetails)
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != "0000" {
-			return errors.New("failed to deduct invetory")
-		}
-
+	orderInfo, err := appService.serviceContext.OrderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
+	if err != nil {
+		return err
+	}
+	if orderInfo.PayTime.Time.Unix() > 0 && orderInfo.PayStatus > 2 {
 		return nil
+	}
+	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+		return appService.orderDataService.UpdateOrderPayStatus(txCtx, orderInfo, req)
 	})
+	if err != nil {
+		return err
+	}
+
+	productReq := &product.OrderDetailReq{
+		OrderId: orderInfo.Id,
+		Products: []*product.ProductInvetoryItem{},
+	}
+	for _, item := range orderInfo.OrderDetail {
+		productReq.Products = append(productReq.Products, &product.ProductInvetoryItem{
+			ProductId:     item.ProductId,
+			ProductNum:    item.ProductNum,
+			ProductSizeId: item.ProductSizeId,
+		})
+	}
+	productSvcAddr := appService.serviceContext.Conf.Consumer.Product.Addr
+	saga := appService.serviceContext.Dtm.BeginGrpcSaga(ctx).
+		Add(productSvcAddr + "/DeductInvetory",
+		productSvcAddr + "/DeductInvetoryRevert", productReq)
+	saga.TimeoutToFail = 30
+	err =  saga.Submit()
+	return err
 }
