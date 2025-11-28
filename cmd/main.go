@@ -2,68 +2,48 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"github.com/micro/go-micro/v2"
-	"github.com/micro/go-micro/v2/client"
-	"github.com/micro/go-micro/v2/client/grpc"
-	"github.com/micro/go-micro/v2/client/selector"
-	config2 "github.com/micro/go-micro/v2/config"
-	"github.com/micro/go-micro/v2/config/encoder/yaml"
-	"github.com/micro/go-micro/v2/config/source"
-	"github.com/micro/go-micro/v2/util/log"
-	"github.com/micro/go-plugins/config/source/consul/v2"
-	ratelimit "github.com/micro/go-plugins/wrapper/ratelimiter/uber/v2"
-	service2 "github.com/zhanshen02154/order/internal/application/service"
-	appconfig "github.com/zhanshen02154/order/internal/config"
-	"github.com/zhanshen02154/order/internal/infrastructure"
-	"github.com/zhanshen02154/order/internal/infrastructure/persistence"
-	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
-	"github.com/zhanshen02154/order/internal/infrastructure/registry"
-	"github.com/zhanshen02154/order/internal/interfaces/handler"
-	"github.com/zhanshen02154/order/pkg/env"
-	"github.com/zhanshen02154/order/proto/order"
-	"github.com/zhanshen02154/order/proto/product"
-	"net/http"
-	_ "net/http/pprof"
-	"runtime"
 	"time"
+
+	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
+	"github.com/go-micro/plugins/v4/transport/grpc"
+	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
+	appservice "github.com/zhanshen02154/order/internal/application/service"
+	config2 "github.com/zhanshen02154/order/internal/config"
+	"github.com/zhanshen02154/order/internal/infrastructure"
+	config3 "github.com/zhanshen02154/order/internal/infrastructure/config"
+	"github.com/zhanshen02154/order/internal/infrastructure/registry"
+	localserver "github.com/zhanshen02154/order/internal/infrastructure/server"
+	"github.com/zhanshen02154/order/internal/interfaces/handler"
+	"github.com/zhanshen02154/order/pkg/codec"
+	"github.com/zhanshen02154/order/proto/order"
+	"go-micro.dev/v4"
+	"go-micro.dev/v4/config"
+	"go-micro.dev/v4/logger"
+	"go-micro.dev/v4/server"
 )
 
 func main() {
-	// 从consul获取配置
-	consulHost := env.GetEnv("CONSUL_HOST", "192.168.83.131")
-	consulPort := env.GetEnv("CONSUL_PORT", "8500")
-	consulPrefix := env.GetEnv("CONSUL_PREFIX", "/micro/")
-	consulSource := consul.NewSource(
-		// Set configuration address
-		consul.WithAddress(fmt.Sprintf("%s:%s", consulHost, consulPort)),
-		//前缀 默认：/micro/product
-		consul.WithPrefix(consulPrefix),
-		//consul.StripPrefix(true),
-		source.WithEncoder(yaml.NewEncoder()),
-		consul.StripPrefix(true),
-	)
-	configInfo, err := config2.NewConfig()
+	consulSource := config3.LoadConsulCOnfig()
+	configInfo, err := config.NewConfig()
+	if err != nil {
+		logger.Error(err)
+		return
+	}
 	defer func() {
 		err = configInfo.Close()
 		if err != nil {
-			log.Error(err)
+			logger.Error(err)
 		}
 	}()
-	if err != nil {
-		log.Error(err)
-		return
-	}
 	err = configInfo.Load(consulSource)
 	if err != nil {
-		log.Error(err)
+		logger.Error(err)
 		return
 	}
 
-	var confInfo appconfig.SysConfig
-	if err = configInfo.Get("order").Scan(&confInfo); err != nil {
-		log.Error(err)
-		return
+	var confInfo config2.SysConfig
+	if err := configInfo.Get("order").Scan(&confInfo); err != nil {
+		logger.Error(err)
 	}
 
 	//注册中心
@@ -71,109 +51,82 @@ func main() {
 
 	//t,io,err := common.NewTracer(ServiceName, "127.0.0.1:6831")
 	//if err != nil {
-	//	log.Error(err)
+	//	logger.Error(err)
 	//}
 	//defer io.Close()
 	//opetracing2.SetGlobalTracer(t)
 
-	db, err := persistence.InitDB(&confInfo.Database)
+	serviceContext, err := infrastructure.NewServiceContext(&confInfo)
 	if err != nil {
-		log.Errorf("failed to load gorm framework", err)
+		logger.Errorf("error to load service context: %s", err)
 		return
 	}
+	defer serviceContext.Close()
 
 	// 健康检查
-	probeServer := infrastructure.NewProbeServer(confInfo.Service.HeathCheckAddr, db)
+	probeServer := localserver.NewProbeServer(confInfo.Service.HeathCheckAddr, serviceContext)
 	if err = probeServer.Start(); err != nil {
-		log.Error("健康检查服务器启动失败")
+		logger.Error("健康检查服务器启动失败")
 		return
 	}
+
+	var pprofSrv *localserver.PprofServer
 	if confInfo.Service.Debug {
-		runtime.SetBlockProfileRate(1)
-		runtime.SetCPUProfileRate(1)
-		runtime.SetMutexProfileFraction(1)
-		go func() {
-			if err = http.ListenAndServe(":6060", nil); err != nil && err != http.ErrServerClosed {
-				log.Error("pprof服务器启动失败")
-			}
-			log.Info("pprof服务器已关闭")
-		}()
+		pprofSrv = localserver.NewPprofServer(":6060")
 	}
-
-	txManager := gorm2.NewGormTransactionManager(db)
-	orderRepo := gorm2.NewOrderRepository(db)
-
-	// 初始化商品服务客户端
-	grpcClient := grpc.NewClient(
-		client.Selector(
-			selector.NewSelector(
-				selector.Registry(consulRegistry),
-				selector.SetStrategy(selector.RoundRobin),
-				),
-			),
-		client.Registry(consulRegistry),
-		client.PoolSize(500),
-		client.PoolTTL(5 * time.Minute),
-		client.RequestTimeout(5 * time.Second),
-		client.DialTimeout(15 * time.Second),
-		)
-	productClient := product.NewProductService(confInfo.Consumer.Product.ServiceName, grpcClient)
-
 	//tableInit.InitTable()
 
 	//common.PrometheusBoot(PrometheusPort)
 
 	// New Service
 	service := micro.NewService(
-		micro.Name(confInfo.Service.Name),
-		micro.Version(confInfo.Service.Version),
-		micro.Address(confInfo.Service.Listen),
-		micro.Registry(consulRegistry),
-		micro.RegisterTTL(time.Duration(confInfo.Consul.RegisterTtl)*time.Second),
-		micro.RegisterInterval(time.Duration(confInfo.Consul.RegisterInterval)*time.Second),
+		micro.Server(grpc2.NewServer(
+			server.Name(confInfo.Service.Name),
+			server.Version(confInfo.Service.Version),
+			server.Address(confInfo.Service.Listen),
+			server.Transport(grpc.NewTransport()),
+			server.Registry(consulRegistry),
+			server.RegisterTTL(time.Duration(confInfo.Consul.RegisterTtl)*time.Second),
+			server.RegisterInterval(time.Duration(confInfo.Consul.RegisterInterval)*time.Second),
+			//server.WrapHandler(dtm.NewHandlerWrapper),
+			grpc2.Codec("application/grpc+dtm_raw", codec.NewDtmCodec()),
+		)),
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
 		micro.WrapHandler(ratelimit.NewHandlerWrapper(confInfo.Service.Qps)),
+
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
+		micro.AfterStart(func() error {
+			pprofSrv.Start()
+			return nil
+		}),
 		micro.BeforeStop(func() error {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			log.Info("收到关闭信号，正在停止健康检查服务器...")
-			err =  probeServer.Shutdown(shutdownCtx)
+			logger.Info("收到关闭信号，正在停止健康检查服务器...")
+			err := probeServer.Shutdown(shutdownCtx)
 			if err != nil {
 				return err
 			}
-			sqlDB, err := db.DB()
-			if err != nil {
-				log.Errorf("failed to close database: %v", err)
-				return err
-			}
-			if err = sqlDB.Ping(); err == nil {
-				err1 := sqlDB.Close()
-				if err1 != nil {
-					log.Infof("关闭GORM连接失败： %v", err1)
-					return err1
-				}else {
-					log.Info("GORM数据库连接已关闭")
+			if confInfo.Service.Debug {
+				if err := pprofSrv.Close(shutdownCtx); err != nil {
+					logger.Error("pprof服务器关闭错误: ", err)
 				}
-			}else {
-				log.Info("数据库已关闭")
 			}
 			return nil
 		}),
 	)
 	//service.Init()
-	orderAppService := service2.NewOrderApplicationService(txManager, orderRepo, productClient)
+	orderAppService := appservice.NewOrderApplicationService(serviceContext)
 
 	// Register Handler
 	err = order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
 	if err != nil {
-		log.Error(err)
+		logger.Error(err)
 	}
 
 	if err = service.Run(); err != nil {
-		log.Error(err)
+		logger.Error(err)
 	}
-
 }

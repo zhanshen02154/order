@@ -1,10 +1,12 @@
 package config
 
 type SysConfig struct {
-	Service  ServiceInfo `json:"service" yaml:"service"`
-	Database MySqlConfig `json:"database" yaml:"database"`
-	Consul   ConsulInfo  `json:"consul" yaml:"consul"`
-	Consumer Consumer    `json:"consumer" yaml:"consumer"`
+	Service     ServiceInfo `json:"service" yaml:"service"`
+	Database    MySqlConfig `json:"database" yaml:"database"`
+	Consul      ConsulInfo  `json:"consul" yaml:"consul"`
+	Etcd        Etcd        `json:"etcd" yaml:"etcd"`
+	Consumer    Consumer    `json:"consumer" yaml:"consumer"`
+	Transaction Transaction `yaml:"transaction" json:"transaction"`
 }
 
 // 服务信息
@@ -43,11 +45,25 @@ type MySqlConfig struct {
 	ConnMaxLifeTime uint   `json:"conn_max_life_time" yaml:"conn_max_life_time"`
 }
 
+type Etcd struct {
+	Hosts            []string `json:"hosts" yaml:"hosts"`
+	DialTimeout      int64    `json:"dial_timeout" yaml:"dial_timeout"`
+	Username         string   `yaml:"username" json:"username"`
+	Password         string   `yaml:"password" json:"password"`
+	AutoSyncInterval int64    `yaml:"auto_sync_interval" json:"auto_sync_interval"`
+	Prefix           string   `yaml:"prefix" json:"prefix"`
+}
+
 type Consumer struct {
 	Product Product `json:"product" yaml:"product"`
 }
 
 type Product struct {
-	ClientName  string `json:"client_name" yaml:"client_name"`
-	ServiceName string `json:"service_name" yaml:"service_name"`
+	Addr        string `json:"addr" yaml:"addr"`
+}
+
+// 事务管理
+type Transaction struct {
+	Driver string `json:"driver" yaml:"driver"`
+	Host   string `json:"host" yaml:"host"`
 }
