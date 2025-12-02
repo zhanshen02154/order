@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/service"
@@ -41,17 +40,14 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
 	timeoutCtx, timeoutCtxFunc := context.WithTimeout(context.Background(), 30 * time.Second)
 	defer timeoutCtxFunc()
-	lock, err := appService.serviceContext.LockManager.NewLock(timeoutCtx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo))
+	lock, err := appService.serviceContext.LockManager.NewLock(timeoutCtx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo), 25)
 	if err != nil {
 		return err
 	}
-	ok, err := lock.TryLock(timeoutCtx)
+	err = lock.TryLock(timeoutCtx)
 	defer lock.UnLock(timeoutCtx)
 	if err != nil {
 		return err
-	}
-	if !ok {
-		return errors.New(fmt.Sprintf("duplicate notify: %s", req.OutTradeNo))
 	}
 
 	orderInfo, err := appService.serviceContext.OrderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
