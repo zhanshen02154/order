@@ -13,15 +13,16 @@ import (
 
 // 分布式锁接口
 type DistributedLock interface {
-	Lock(ctx context.Context) (bool, error)
-	TryLock(ctx context.Context) (bool, error)
-	UnLock(ctx context.Context) (bool, error)
+	Lock(ctx context.Context) error
+	TryLock(ctx context.Context) error
+	UnLock(ctx context.Context) error
 	GetKey(ctx context.Context) string
 }
 
 // ETCD锁
 type EtcdLock struct {
 	mutex *concurrency.Mutex
+	session  *concurrency.Session
 }
 
 // 获取键名
@@ -30,32 +31,28 @@ func (l *EtcdLock) GetKey(ctx context.Context) string {
 }
 
 // 加锁
-func (l *EtcdLock) Lock(ctx context.Context) (bool, error) {
-	if err := l.mutex.Lock(ctx); err != nil {
-		return false, err
-	}
-	return true, nil
+func (l *EtcdLock) Lock(ctx context.Context) error {
+	return l.mutex.Lock(ctx)
 }
 
 // 加锁（尝试获取锁）
-func (l *EtcdLock) TryLock(ctx context.Context) (bool, error) {
-	if err := l.mutex.TryLock(ctx); err != nil {
-		return false, err
-	}
-	return true, nil
+func (l *EtcdLock) TryLock(ctx context.Context) error {
+	return l.mutex.TryLock(ctx)
 }
 
 // 解锁
-func (l *EtcdLock) UnLock(ctx context.Context) (bool, error) {
-	if err := l.mutex.Unlock(ctx); err != nil {
-		return false, err
-	}
-	return true, nil
+func (l *EtcdLock) UnLock(ctx context.Context) error {
+	defer func() {
+		if err := l.session.Close(); err != nil {
+			logger.Error("failed to close session: ", err)
+		}
+	}()
+	return l.mutex.Unlock(ctx)
 }
 
 // 分布式锁管理器
 type LockManager interface {
-	NewLock(ctx context.Context, key string) (DistributedLock, error)
+	NewLock(ctx context.Context, key string, ttl int) (DistributedLock, error)
 	Close() error
 }
 
@@ -63,7 +60,6 @@ type LockManager interface {
 type EtcdLockManager struct {
 	ecli     *clientv3.Client
 	prefix   string
-	session  *concurrency.Session
 	isClosed bool
 	mu       sync.RWMutex
 }
@@ -74,26 +70,25 @@ func (elm *EtcdLockManager) Close() error {
 	defer elm.mu.Unlock()
 
 	elm.isClosed = true
-	if elm.session != nil {
-		err := elm.session.Close()
-		if err != nil {
-			logger.Errorf("failed to close etcd session: ", err)
-		}
-	}
 	return elm.ecli.Close()
 }
 
 // 创建锁
-func (elm *EtcdLockManager) NewLock(ctx context.Context, key string) (DistributedLock, error) {
+func (elm *EtcdLockManager) NewLock(ctx context.Context, key string, ttl int) (DistributedLock, error) {
 	elm.mu.RLock()
 	defer elm.mu.RUnlock()
 
 	if elm.isClosed {
 		return nil, fmt.Errorf("etcd client was closed")
 	}
-	mutex := concurrency.NewMutex(elm.session, fmt.Sprintf("%slock/%s", elm.prefix, key))
+	session, err := concurrency.NewSession(elm.ecli, concurrency.WithTTL(ttl))
+	if err != nil {
+		return nil, err
+	}
+	mutex := concurrency.NewMutex(session, fmt.Sprintf("%slock/%s", elm.prefix, key))
 	return &EtcdLock{
 		mutex: mutex,
+		session: session,
 	}, nil
 }
 
@@ -114,11 +109,6 @@ func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	session, err := concurrency.NewSession(client, concurrency.WithTTL(30))
-	if err != nil {
-		client.Close()
-		return nil, err
-	}
 	logger.Info("ETCD was stared")
-	return &EtcdLockManager{ecli: client, prefix: conf.Prefix, session: session}, nil
+	return &EtcdLockManager{ecli: client, prefix: conf.Prefix}, nil
 }
