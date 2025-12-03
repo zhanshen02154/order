@@ -73,3 +73,19 @@ func (orderRepo *OrderRepository) ConfirmPaymentOrder(ctx context.Context, order
 	}
 	return nil
 }
+
+// 更新订单状态
+func (orderRepo *OrderRepository) UpdatePayStatus(ctx context.Context, id int64, status int32) error {
+	db, ok := ctx.Value(txKey{}).(*gorm.DB)
+	if !ok {
+		db = orderRepo.db.WithContext(ctx)
+	}
+	res := db.Debug().Model(model.Order{}).Where("id = ?", id).Select("pay_status").UpdateColumn("pay_status", status)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}

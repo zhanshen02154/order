@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package order.event;
+
+option go_package = "./internal/domain/event/order";
+
+// 订单支付成功事件
+message OnPaymentSuccess {
+  int64 OrderId = 1;
+  repeated ProductInventoryItem products = 2;
+}
+
+// 订单涉及的商品库存
+message ProductInventoryItem {
+  int64 product_id = 1;
+  int64 product_num = 2;
+  int64 product_size_id = 3;
+}

@@ -56,9 +56,9 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.AfterStart(func() error {
 			pprofSrv.Start()
-			//if err := broker.Connect(); err != nil {
-			//	return err
-			//}
+			if err := broker.Connect(); err != nil {
+				return err
+			}
 			if err := probeServer.Start(); err != nil {
 				logger.Error("健康检查服务器启动失败")
 			}
