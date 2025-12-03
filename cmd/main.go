@@ -15,7 +15,7 @@ func main() {
 	}
 	defer func() {
 		if consulSource != nil {
-			if err := consulSource; err != nil {
+			if err := consulSource.Close(); err != nil {
 				logger.Error("failed to close config: ", err)
 			}
 		}

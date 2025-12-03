@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
+	orderevent "github.com/zhanshen02154/order/internal/domain/event/order"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/service"
 	"github.com/zhanshen02154/order/internal/infrastructure"
 	"github.com/zhanshen02154/order/internal/infrastructure/event"
 	"github.com/zhanshen02154/order/proto/order"
+	"go-micro.dev/v4/logger"
 )
 
 type IOrderApplicationService interface {
@@ -46,7 +48,11 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 		return err
 	}
 	err = lock.TryLock(ctx)
-	defer lock.UnLock(ctx)
+	defer func() {
+		if err := lock.UnLock(ctx); err != nil {
+			logger.Error("failed to unlock ", lock.GetKey(ctx), " error: ", err)
+		}
+	}()
 	if err != nil {
 		return err
 	}
@@ -59,37 +65,31 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 		return nil
 	}
 
-	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
-		return appService.orderDataService.UpdateOrderPayStatus(txCtx, orderInfo, req)
+	return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+		// 标记为处理中
+		err = appService.orderDataService.UpdateOrderPayStatus(txCtx, orderInfo.Id, 3)
+		if err != nil {
+			return err
+		}
+
+		// 发布事件
+		onPaymentSuccessEvent := &orderevent.OnPaymentSuccess{
+			OrderId: orderInfo.Id,
+			Products: make([]*orderevent.ProductInventoryItem, 0),
+		}
+		if orderInfo.OrderDetail != nil {
+			for _, item := range orderInfo.OrderDetail {
+				onPaymentSuccessEvent.Products = append(onPaymentSuccessEvent.Products, &orderevent.ProductInventoryItem{
+					ProductId:     item.ProductId,
+					ProductNum:    item.ProductNum,
+					ProductSizeId: item.ProductSizeId,
+				})
+			}
+			err = appService.eb.Publish(ctx, "OnPaymentSuccess", onPaymentSuccessEvent)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	//orderPayInfo := &order.OrderPaid{
-	//	OrderId:   orderInfo.Id,
-	//	PayStatus: 3,
-	//}
-	//if err := appService.eventDispatcher.Publish(ctx, "order.paid", orderPayInfo); err != nil {
-	//	return err
-	//}
-
-	//productReq := &product.OrderDetailReq{
-	//	OrderId:  orderInfo.Id,
-	//	Products: []*product.ProductInvetoryItem{},
-	//}
-	//for _, item := range orderInfo.OrderDetail {
-	//	productReq.Products = append(productReq.Products, &product.ProductInvetoryItem{
-	//		ProductId:     item.ProductId,
-	//		ProductNum:    item.ProductNum,
-	//		ProductSizeId: item.ProductSizeId,
-	//	})
-	//}
-	//productSvcAddr := appService.serviceContext.Conf.Consumer.Product.Addr
-	//saga := appService.serviceContext.Dtm.BeginGrpcSaga(ctx).
-	//	Add(productSvcAddr+"/DeductInvetory",
-	//		productSvcAddr+"/DeductInvetoryRevert", productReq)
-	//saga.TimeoutToFail = 30
-	//err = saga.Submit()
-	return err
 }
