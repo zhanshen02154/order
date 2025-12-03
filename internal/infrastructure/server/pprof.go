@@ -4,6 +4,7 @@ import (
 	"context"
 	"go-micro.dev/v4/logger"
 	"net/http"
+	_ "net/http/pprof"
 	"runtime"
 	"sync"
 	"sync/atomic"
