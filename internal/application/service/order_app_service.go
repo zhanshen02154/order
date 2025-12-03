@@ -6,9 +6,8 @@ import (
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/service"
 	"github.com/zhanshen02154/order/internal/infrastructure"
+	"github.com/zhanshen02154/order/internal/infrastructure/event"
 	"github.com/zhanshen02154/order/proto/order"
-	"github.com/zhanshen02154/order/proto/product"
-	"time"
 )
 
 type IOrderApplicationService interface {
@@ -19,16 +18,20 @@ type IOrderApplicationService interface {
 type OrderApplicationService struct {
 	orderDataService service.IOrderDataService
 	serviceContext   *infrastructure.ServiceContext
+	eb event.Bus
 }
 
 // 创建
 func NewOrderApplicationService(
 	serviceContext *infrastructure.ServiceContext,
+	eb event.Bus,
 ) IOrderApplicationService {
-	return &OrderApplicationService{
+	srv := &OrderApplicationService{
 		orderDataService: service.NewOrderDataService(serviceContext.OrderRepository),
-		serviceContext: serviceContext,
+		serviceContext:   serviceContext,
+		eb: eb,
 	}
+	return srv
 }
 
 // 根据ID获取订单信息
@@ -38,14 +41,12 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 
 // 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
-	timeoutCtx, timeoutCtxFunc := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer timeoutCtxFunc()
-	lock, err := appService.serviceContext.LockManager.NewLock(timeoutCtx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo), 25)
+	lock, err := appService.serviceContext.LockManager.NewLock(ctx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo), 25)
 	if err != nil {
 		return err
 	}
-	err = lock.TryLock(timeoutCtx)
-	defer lock.UnLock(timeoutCtx)
+	err = lock.TryLock(ctx)
+	defer lock.UnLock(ctx)
 	if err != nil {
 		return err
 	}
@@ -54,9 +55,10 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 	if err != nil {
 		return err
 	}
-	if orderInfo.PayTime.Time.Unix() > 0 && orderInfo.PayStatus > 2 {
+	if orderInfo.PayTime.Time.Unix() > 0 || orderInfo.PayStatus > 2 {
 		return nil
 	}
+
 	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
 		return appService.orderDataService.UpdateOrderPayStatus(txCtx, orderInfo, req)
 	})
@@ -64,22 +66,30 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 		return err
 	}
 
-	productReq := &product.OrderDetailReq{
-		OrderId: orderInfo.Id,
-		Products: []*product.ProductInvetoryItem{},
-	}
-	for _, item := range orderInfo.OrderDetail {
-		productReq.Products = append(productReq.Products, &product.ProductInvetoryItem{
-			ProductId:     item.ProductId,
-			ProductNum:    item.ProductNum,
-			ProductSizeId: item.ProductSizeId,
-		})
-	}
-	productSvcAddr := appService.serviceContext.Conf.Consumer.Product.Addr
-	saga := appService.serviceContext.Dtm.BeginGrpcSaga(ctx).
-		Add(productSvcAddr + "/DeductInvetory",
-		productSvcAddr + "/DeductInvetoryRevert", productReq)
-	saga.TimeoutToFail = 30
-	err =  saga.Submit()
+	//orderPayInfo := &order.OrderPaid{
+	//	OrderId:   orderInfo.Id,
+	//	PayStatus: 3,
+	//}
+	//if err := appService.eventDispatcher.Publish(ctx, "order.paid", orderPayInfo); err != nil {
+	//	return err
+	//}
+
+	//productReq := &product.OrderDetailReq{
+	//	OrderId:  orderInfo.Id,
+	//	Products: []*product.ProductInvetoryItem{},
+	//}
+	//for _, item := range orderInfo.OrderDetail {
+	//	productReq.Products = append(productReq.Products, &product.ProductInvetoryItem{
+	//		ProductId:     item.ProductId,
+	//		ProductNum:    item.ProductNum,
+	//		ProductSizeId: item.ProductSizeId,
+	//	})
+	//}
+	//productSvcAddr := appService.serviceContext.Conf.Consumer.Product.Addr
+	//saga := appService.serviceContext.Dtm.BeginGrpcSaga(ctx).
+	//	Add(productSvcAddr+"/DeductInvetory",
+	//		productSvcAddr+"/DeductInvetoryRevert", productReq)
+	//saga.TimeoutToFail = 30
+	//err = saga.Submit()
 	return err
 }
