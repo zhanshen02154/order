@@ -24,7 +24,7 @@ func (w *MetaDataWrapper) Publish(ctx context.Context, msg client.Message, opts 
 	}
 	md["event_id"] = uuid.New().String()
 	md["event_type"] = msg.Topic()
-	md["timestamp"] = strconv.FormatInt(time.Now().Unix(), 36)
+	md["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
 	md["source"] = w.serviceName
 	md["schema_version"] = w.serviceVersion
 	ctx = metadata.NewContext(ctx, md)
