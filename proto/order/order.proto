@@ -78,3 +78,8 @@ message PayNotifyResponse {
   string StatusCode = 1;
   string Msg = 2;
 }
+
+message OrderPaid {
+  int64 OrderId = 1;
+  int32 PayStatus =2;
+}
