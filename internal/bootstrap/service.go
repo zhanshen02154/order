@@ -5,15 +5,12 @@ import (
 	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
 	"github.com/go-micro/plugins/v4/transport/grpc"
 	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
+	"github.com/zhanshen02154/order/internal/application/event/subscriber"
 	appservice "github.com/zhanshen02154/order/internal/application/service"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
-	"github.com/zhanshen02154/order/internal/infrastructure/broker/kafka"
-	event2 "github.com/zhanshen02154/order/internal/infrastructure/event"
+	"github.com/zhanshen02154/order/internal/infrastructure/event"
 	"github.com/zhanshen02154/order/internal/infrastructure/event/wrapper"
-	"github.com/zhanshen02154/order/internal/infrastructure/registry"
-	localserver "github.com/zhanshen02154/order/internal/infrastructure/server"
-	"github.com/zhanshen02154/order/internal/interfaces/event"
 	"github.com/zhanshen02154/order/internal/interfaces/handler"
 	"github.com/zhanshen02154/order/pkg/codec"
 	"github.com/zhanshen02154/order/proto/order"
@@ -25,20 +22,20 @@ import (
 
 func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceContext) error {
 	//注册中心
-	consulRegistry := registry.ConsulRegister(conf.Consul)
+	consulRegistry := infrastructure.ConsulRegister(conf.Consul)
 
-	probeServer := localserver.NewProbeServer(conf.Service.HeathCheckAddr, serviceContext)
+	probeServer := infrastructure.NewProbeServer(conf.Service.HeathCheckAddr, serviceContext)
 
-	var pprofSrv *localserver.PprofServer
+	var pprofSrv *infrastructure.PprofServer
 	if conf.Service.Debug {
-		pprofSrv = localserver.NewPprofServer(":6060")
+		pprofSrv = infrastructure.NewPprofServer(":6060")
 	}
 	//tableInit.InitTable()
 
 	//common.PrometheusBoot(PrometheusPort)
 
 	// New Service
-	broker := kafka.NewKafkaBroker(conf.Broker.Kafka)
+	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka)
 	service := micro.NewService(
 		micro.Server(grpc2.NewServer(
 			server.Name(conf.Service.Name),
@@ -87,16 +84,16 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	)
 
 	// 注册应用层服务及事件侦听器
-	eb := event2.NewListener(service.Client())
-	registerPublisher(conf.Broker, eb)
+	eb := event.NewListener(service.Client())
+	event.RegisterPublisher(conf.Broker, eb)
 	defer eb.Close()
 	orderAppService := appservice.NewOrderApplicationService(serviceContext, eb)
 
-	orderEventHandler := event.NewHandler(orderAppService)
+	productEventHandler := subscriber.NewProductEventHandler(orderAppService)
 	// 注册订阅事件
 	if len(conf.Broker.Subscriber) > 0 {
 		for i := range conf.Broker.Subscriber {
-			if err := micro.RegisterSubscriber(conf.Broker.Subscriber[i], service.Server(), orderEventHandler); err != nil {
+			if err := micro.RegisterSubscriber(conf.Broker.Subscriber[i], service.Server(), productEventHandler); err != nil {
 				logger.Error("failed to register subsriber: ", err)
 				continue
 			}
@@ -114,13 +111,4 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	}
 
 	return nil
-}
-
-// 注册发布事件
-func registerPublisher(conf *config.Broker, eb event2.Bus) {
-	if len(conf.Publisher) > 0 {
-		for i := range conf.Publisher {
-			eb.Register(conf.Publisher[i])
-		}
-	}
 }

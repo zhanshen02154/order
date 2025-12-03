@@ -2,34 +2,28 @@ package main
 
 import (
 	"github.com/zhanshen02154/order/internal/bootstrap"
-	config2 "github.com/zhanshen02154/order/internal/config"
+	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
-	config3 "github.com/zhanshen02154/order/internal/infrastructure/config"
-	"go-micro.dev/v4/config"
 	"go-micro.dev/v4/logger"
 )
 
 func main() {
-	consulSource := config3.LoadConsulCOnfig()
-	configInfo, err := config.NewConfig()
+	consulSource, err := config.GetConfig()
 	if err != nil {
 		logger.Error(err)
 		return
 	}
 	defer func() {
-		err = configInfo.Close()
-		if err != nil {
-			logger.Error(err)
+		if consulSource != nil {
+			if err := consulSource; err != nil {
+				logger.Error("failed to close config: ", err)
+			}
 		}
-	}()
-	err = configInfo.Load(consulSource)
-	if err != nil {
-		logger.Error(err)
 		return
-	}
+	}()
 
-	var confInfo config2.SysConfig
-	if err := configInfo.Get("order").Scan(&confInfo); err != nil {
+	var confInfo config.SysConfig
+	if err := consulSource.Get("order").Scan(&confInfo); err != nil {
 		logger.Error(err)
 	}
 	//t,io,err := common.NewTracer(ServiceName, "127.0.0.1:6831")
