@@ -18,13 +18,13 @@ type IOrderApplicationService interface {
 type OrderApplicationService struct {
 	orderDataService service.IOrderDataService
 	serviceContext   *infrastructure.ServiceContext
-	eb event.Bus
+	eb event.Listener
 }
 
 // 创建
 func NewOrderApplicationService(
 	serviceContext *infrastructure.ServiceContext,
-	eb event.Bus,
+	eb event.Listener,
 ) IOrderApplicationService {
 	srv := &OrderApplicationService{
 		orderDataService: service.NewOrderDataService(serviceContext.OrderRepository),
