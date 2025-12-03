@@ -42,12 +42,17 @@ func (l *EtcdLock) TryLock(ctx context.Context) error {
 
 // 解锁
 func (l *EtcdLock) UnLock(ctx context.Context) error {
-	defer func() {
-		if err := l.session.Close(); err != nil {
-			logger.Error("failed to close session: ", err)
-		}
-	}()
-	return l.mutex.Unlock(ctx)
+	timeoutCtx, ctxCancelFunc := context.WithTimeout(context.Background(), time.Second * 3)
+	defer ctxCancelFunc()
+	err := l.mutex.Unlock(timeoutCtx)
+	closeErr := l.session.Close()
+	if err != nil {
+		return fmt.Errorf("failed to unlock %s: %v", l.mutex.Key(), err)
+	}
+	if closeErr != nil {
+		logger.Error("failed to close session: ", err)
+	}
+	return nil
 }
 
 // 分布式锁管理器
@@ -96,12 +101,10 @@ func (elm *EtcdLockManager) NewLock(ctx context.Context, key string, ttl int) (D
 func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints: conf.Hosts,
-		AutoSyncInterval: time.Duration(conf.AutoSyncInterval) * time.Second,
-		DialTimeout: time.Duration(conf.DialTimeout) * time.Second,
+		DialTimeout: 10 * time.Second,
 		Username:    conf.Username,
 		Password:    conf.Password,
-		RejectOldCluster: true,
-		DialKeepAliveTime: 30 * time.Second,
+		DialKeepAliveTime: 10 * time.Second,
 		DialKeepAliveTimeout: 5 * time.Second,
 		MaxCallRecvMsgSize: 10 * 1024 * 1024,
 		MaxCallSendMsgSize: 10 * 1024 * 1024,
