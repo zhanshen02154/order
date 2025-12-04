@@ -6,8 +6,11 @@ import (
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/client"
 	"go-micro.dev/v4/logger"
+	"go-micro.dev/v4/metadata"
 	"sync"
 )
+
+const partitionKey = "Pkey"
 
 // 侦听器
 type MicroListener struct {
@@ -17,11 +20,18 @@ type MicroListener struct {
 }
 
 // 发布
-func (l *MicroListener) Publish(ctx context.Context, topic string, msg interface{}, opts ...client.PublishOption) error {
+func (l *MicroListener) Publish(ctx context.Context, topic string, msg interface{}, key interface{}, opts ...client.PublishOption) error {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if _, ok := l.eventPublisher[topic]; !ok {
 		return fmt.Errorf("topic: %s event not registerd", topic)
+	}
+
+	// 将key放到metadata
+	if key != nil {
+		if _, ok := metadata.Get(ctx, partitionKey); !ok {
+			ctx = metadata.Set(ctx, partitionKey, fmt.Sprintf("%v", key))
+		}
 	}
 	return l.eventPublisher[topic].Publish(ctx, msg, opts...)
 }
