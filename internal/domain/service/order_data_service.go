@@ -11,6 +11,7 @@ type IOrderDataService interface {
 	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
 	PayNotify(ctx context.Context, payOrderInfo *model.Order, req *order.PayNotifyRequest) error
 	UpdateOrderPayStatus(ctx context.Context, orderId int64, status int32) error
+	FindByIdAndStatus(ctx context.Context, orderId int64, status int32) (*model.Order, error)
 }
 
 // 创建
@@ -39,4 +40,9 @@ func (u *OrderDataService) PayNotify(ctx context.Context, payOrderInfo *model.Or
 // 更新订单状态
 func (u *OrderDataService) UpdateOrderPayStatus(ctx context.Context, orderId int64, status int32) error {
 	return u.orderRepository.UpdatePayStatus(ctx, orderId, status)
+}
+
+// 根据ID和状态查找订单
+func (u *OrderDataService) FindByIdAndStatus(ctx context.Context, orderId int64, status int32) (*model.Order, error) {
+	return u.orderRepository.FindByIdAndStatus(ctx, orderId, status)
 }
