@@ -10,17 +10,20 @@ import (
 	"github.com/zhanshen02154/order/internal/infrastructure/event"
 	"github.com/zhanshen02154/order/proto/order"
 	"go-micro.dev/v4/logger"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type IOrderApplicationService interface {
 	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
 	PayNotify(ctx context.Context, req *order.PayNotifyRequest) error
+	RevertPayStatus(ctx context.Context, orderId int64) error
 }
 
 type OrderApplicationService struct {
 	orderDataService service.IOrderDataService
 	serviceContext   *infrastructure.ServiceContext
-	eb event.Listener
+	eb               event.Listener
 }
 
 // 创建
@@ -31,7 +34,7 @@ func NewOrderApplicationService(
 	srv := &OrderApplicationService{
 		orderDataService: service.NewOrderDataService(serviceContext.OrderRepository),
 		serviceContext:   serviceContext,
-		eb: eb,
+		eb:               eb,
 	}
 	return srv
 }
@@ -74,7 +77,7 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 
 		// 发布事件
 		onPaymentSuccessEvent := &orderevent.OnPaymentSuccess{
-			OrderId: orderInfo.Id,
+			OrderId:  orderInfo.Id,
 			Products: make([]*orderevent.ProductInventoryItem, 0),
 		}
 		if orderInfo.OrderDetail != nil {
@@ -85,10 +88,28 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 					ProductSizeId: item.ProductSizeId,
 				})
 			}
-			err = appService.eb.Publish(ctx, "OnPaymentSuccess", onPaymentSuccessEvent)
+			err = appService.eb.Publish(ctx, "OnPaymentSuccess", onPaymentSuccessEvent, orderInfo.Id)
 			if err != nil {
 				return err
 			}
+		}
+		return nil
+	})
+}
+
+// 恢复支付状态
+func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, orderId int64) error {
+	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
+	if err != nil {
+		return status.Errorf(codes.Internal, "order_id %d find error: ", orderId, err)
+	}
+	if orderInfo == nil {
+		return status.Errorf(codes.Aborted, "order_id %d not found", orderId, err)
+	}
+	return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+		err := appService.orderDataService.UpdateOrderPayStatus(ctx, orderId, 5)
+		if err != nil {
+			return status.Errorf(codes.Aborted, "failed to update status: %d", orderId)
 		}
 		return nil
 	})

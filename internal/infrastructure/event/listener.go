@@ -8,7 +8,7 @@ import (
 
 // 事件总线
 type Listener interface {
-	Publish(ctx context.Context, topic string, event interface{}, opts ...client.PublishOption) error
+	Publish(ctx context.Context, topic string, event interface{}, key interface{}, opts ...client.PublishOption) error
 	Register(topic string) bool
 	UnRegister(topic string) bool
 	Close()
