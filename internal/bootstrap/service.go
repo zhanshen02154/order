@@ -36,6 +36,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 
 	// New Service
 	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka)
+	dealLetterWrapper := wrapper.NewDeadLetterWrapper(broker)
 	service := micro.NewService(
 		micro.Server(grpc2.NewServer(
 			server.Name(conf.Service.Name),
@@ -81,11 +82,13 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			return nil
 		}),
 		micro.WrapClient(wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version)),
+		micro.WrapSubscriber(dealLetterWrapper.Wrapper()),
 	)
 
 	// 注册应用层服务及事件侦听器
 	eb := event.NewListener(service.Client())
 	event.RegisterPublisher(conf.Broker, eb)
+	micro.WrapSubscriber()
 	defer eb.Close()
 	orderAppService := appservice.NewOrderApplicationService(serviceContext, eb)
 
@@ -93,7 +96,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	// 注册订阅事件
 	if len(conf.Broker.Subscriber) > 0 {
 		for i := range conf.Broker.Subscriber {
-			if err := micro.RegisterSubscriber(conf.Broker.Subscriber[i], service.Server(), productEventHandler); err != nil {
+			if err := micro.RegisterSubscriber(conf.Broker.Subscriber[i], service.Server(), productEventHandler, server.SubscriberQueue("order-consumer")); err != nil {
 				logger.Error("failed to register subsriber: ", err)
 				continue
 			}
