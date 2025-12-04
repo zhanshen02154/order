@@ -85,7 +85,17 @@ func (orderRepo *OrderRepository) UpdatePayStatus(ctx context.Context, id int64,
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return nil
 	}
 	return nil
+}
+
+// 根据ID和状态查找订单内容
+func (orderRepo *OrderRepository) FindByIdAndStatus(ctx context.Context, id int64, status int32) (*model.Order, error) {
+	order := &model.Order{}
+	err :=  orderRepo.db.WithContext(ctx).Debug().Model(order).Where("id = ? AND pay_status = ?", id, status).Select("id", "pay_status", "pay_time").First(order).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return order, err
 }
