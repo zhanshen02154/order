@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	"github.com/zhanshen02154/order/proto/order"
+	"time"
 )
 
 type IOrderDataService interface {
@@ -12,6 +14,7 @@ type IOrderDataService interface {
 	PayNotify(ctx context.Context, payOrderInfo *model.Order, req *order.PayNotifyRequest) error
 	UpdateOrderPayStatus(ctx context.Context, orderId int64, status int32) error
 	FindByIdAndStatus(ctx context.Context, orderId int64, status int32) (*model.Order, error)
+	ConfirmPayment(ctx context.Context, orderInfo *model.Order) error
 }
 
 // 创建
@@ -45,4 +48,15 @@ func (u *OrderDataService) UpdateOrderPayStatus(ctx context.Context, orderId int
 // 根据ID和状态查找订单
 func (u *OrderDataService) FindByIdAndStatus(ctx context.Context, orderId int64, status int32) (*model.Order, error) {
 	return u.orderRepository.FindByIdAndStatus(ctx, orderId, status)
+}
+
+// 确认支付
+func (u *OrderDataService) ConfirmPayment(ctx context.Context, orderInfo *model.Order) error {
+	orderInfo.PayStatus = 4
+	orderInfo.ShipStatus = 2
+	orderInfo.PayTime = sql.NullTime{
+		Time:  time.Now(),
+		Valid: true,
+	}
+	return u.orderRepository.ConfirmPayment(ctx, orderInfo)
 }
