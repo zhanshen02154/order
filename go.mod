@@ -3,8 +3,10 @@ module github.com/zhanshen02154/order
 go 1.20
 
 require (
+	github.com/Shopify/sarama v1.30.1
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/dtm-labs/client v1.17.3
+	github.com/go-micro/plugins/v4/broker/kafka v1.2.0
 	github.com/go-micro/plugins/v4/config/source/consul v1.2.0
 	github.com/go-micro/plugins/v4/registry/consul v1.2.1
 	github.com/go-micro/plugins/v4/server/grpc v1.2.0
@@ -24,7 +26,6 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7 // indirect
-	github.com/Shopify/sarama v1.30.1 // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
@@ -49,7 +50,6 @@ require (
 	github.com/go-git/gcfg v1.5.0 // indirect
 	github.com/go-git/go-billy/v5 v5.3.1 // indirect
 	github.com/go-git/go-git/v5 v5.4.2 // indirect
-	github.com/go-micro/plugins/v4/broker/kafka v1.2.0 // indirect
 	github.com/go-micro/plugins/v4/client/grpc v1.2.1 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
