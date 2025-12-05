@@ -11,4 +11,5 @@ type IOrderRepository interface {
 	UpdatePayOrder(ctx context.Context, orderInfo *model.Order) error
 	UpdatePayStatus(ctx context.Context, id int64, status int32) error
 	FindByIdAndStatus(ctx context.Context, id int64, status int32) (*model.Order, error)
+	ConfirmPayment(ctx context.Context, orderInfo *model.Order) error
 }

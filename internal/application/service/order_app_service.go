@@ -18,6 +18,7 @@ type IOrderApplicationService interface {
 	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
 	PayNotify(ctx context.Context, req *order.PayNotifyRequest) error
 	RevertPayStatus(ctx context.Context, orderId int64) error
+	ConfirmPayment(ctx context.Context, orderId int64) error
 }
 
 type OrderApplicationService struct {
@@ -88,7 +89,7 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 					ProductSizeId: item.ProductSizeId,
 				})
 			}
-			err = appService.eb.Publish(ctx, "OnPaymentSuccess", onPaymentSuccessEvent, orderInfo.Id)
+			err = appService.eb.Publish(txCtx, "OnPaymentSuccess", onPaymentSuccessEvent, orderInfo.Id)
 			if err != nil {
 				return err
 			}
@@ -113,4 +114,24 @@ func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, 
 		}
 		return nil
 	})
+}
+
+// 确认支付
+func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, orderId int64) error {
+	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
+	if err != nil {
+		return status.Errorf(codes.Internal, "order_id %d find error: ", orderId, err)
+	}
+	if orderInfo == nil {
+		return status.Errorf(codes.Aborted, "order_id %d not found", orderId, err)
+	}
+
+	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+		err := appService.orderDataService.ConfirmPayment(txCtx, orderInfo)
+		if err != nil {
+			return status.Errorf(codes.Aborted, "failed to confirm payment on %d, error: %s", orderInfo.Id, err.Error())
+		}
+		return nil
+	})
+	return err
 }

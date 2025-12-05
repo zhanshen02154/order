@@ -2,16 +2,17 @@ package bootstrap
 
 import (
 	"context"
+	grpcclient "github.com/go-micro/plugins/v4/client/grpc"
 	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
 	"github.com/go-micro/plugins/v4/transport/grpc"
 	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
-	"github.com/zhanshen02154/order/internal/application/event/subscriber"
 	appservice "github.com/zhanshen02154/order/internal/application/service"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
 	"github.com/zhanshen02154/order/internal/infrastructure/event"
 	"github.com/zhanshen02154/order/internal/infrastructure/event/wrapper"
 	"github.com/zhanshen02154/order/internal/interfaces/handler"
+	"github.com/zhanshen02154/order/internal/interfaces/subscriber"
 	"github.com/zhanshen02154/order/pkg/codec"
 	"github.com/zhanshen02154/order/proto/order"
 	"go-micro.dev/v4"
@@ -30,11 +31,16 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	if conf.Service.Debug {
 		pprofSrv = infrastructure.NewPprofServer(":6060")
 	}
+
+
 	//tableInit.InitTable()
 
 	//common.PrometheusBoot(PrometheusPort)
 
 	// New Service
+	client := grpcclient.NewClient(
+		grpcclient.PoolMaxIdle(100),
+		)
 	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka)
 	dealLetterWrapper := wrapper.NewDeadLetterWrapper(broker)
 	service := micro.NewService(
@@ -48,6 +54,8 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			server.RegisterInterval(time.Duration(conf.Consul.RegisterInterval)*time.Second),
 			grpc2.Codec("application/grpc+dtm_raw", codec.NewDtmCodec()),
 		)),
+		micro.Client(client),
+
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
 		micro.WrapHandler(ratelimit.NewHandlerWrapper(conf.Service.Qps)),
@@ -88,29 +96,23 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	// 注册应用层服务及事件侦听器
 	eb := event.NewListener(service.Client())
 	event.RegisterPublisher(conf.Broker, eb)
-	micro.WrapSubscriber()
 	defer eb.Close()
 	orderAppService := appservice.NewOrderApplicationService(serviceContext, eb)
 
 	productEventHandler := subscriber.NewProductEventHandler(orderAppService)
 	// 注册订阅事件
-	if len(conf.Broker.Subscriber) > 0 {
-		for i := range conf.Broker.Subscriber {
-			if err := micro.RegisterSubscriber(conf.Broker.Subscriber[i], service.Server(), productEventHandler, server.SubscriberQueue("order-consumer")); err != nil {
-				logger.Error("failed to register subsriber: ", err)
-				continue
-			}
-		}
-	}
+	productEventHandler.RegisterSubscriber(service.Server())
 
 	// Register Handler
 	err := order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
 	if err != nil {
 		logger.Error(err)
+		return err
 	}
 
 	if err = service.Run(); err != nil {
 		logger.Error(err)
+		return err
 	}
 
 	return nil
