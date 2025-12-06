@@ -26,16 +26,14 @@ func TestLock(t *testing.T) {
 	setup()
 	lockkey := "testKey"
 	ctx := context.Background()
-	lock, err := lockManager.NewLock(ctx, lockkey)
+	lock, err := lockManager.NewLock(ctx, lockkey, 10)
 	if err != nil {
 		logger.Info(err)
 		return
 	}
-	flag, err := lock.TryLock(ctx)
-	unlockFlag, unlockErr := lock.UnLock(ctx)
-	assert.Equal(t, true, flag)
+	err = lock.TryLock(ctx)
+	unlockErr := lock.UnLock(ctx)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, true, unlockFlag)
 	assert.Equal(t, nil, unlockErr)
 }
 
