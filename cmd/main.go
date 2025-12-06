@@ -25,6 +25,7 @@ func main() {
 	var confInfo config.SysConfig
 	if err := consulSource.Get("order").Scan(&confInfo); err != nil {
 		logger.Error(err)
+		return
 	}
 	//t,io,err := common.NewTracer(ServiceName, "127.0.0.1:6831")
 	//if err != nil {
