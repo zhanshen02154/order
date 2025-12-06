@@ -20,17 +20,17 @@ type ProductEventHandler interface {
 }
 
 // 商品事件处理器实现类
-type ProductEventHandlerImpl struct {
+type productEventHandlerImpl struct {
 	appSrv service.IOrderApplicationService
 }
 
 // 创建商品事件处理器
 func NewProductEventHandler(appSrv service.IOrderApplicationService) ProductEventHandler {
-	return &ProductEventHandlerImpl{appSrv: appSrv}
+	return &productEventHandlerImpl{appSrv: appSrv}
 }
 
 // 扣减库存失败后的处理
-func (h *ProductEventHandlerImpl) OnPaymentSuccessFailed(ctx context.Context, req *order.OnPaymentSuccess) error {
+func (h *productEventHandlerImpl) OnPaymentSuccessFailed(ctx context.Context, req *order.OnPaymentSuccess) error {
 	if req.OrderId == 0 {
 		return status.Error(codes.InvalidArgument, "order_id cannot be empty")
 	}
@@ -38,7 +38,7 @@ func (h *ProductEventHandlerImpl) OnPaymentSuccessFailed(ctx context.Context, re
 }
 
 // 库存扣减成功
-func (h *ProductEventHandlerImpl) OnInventoryDeductSuccess(ctx context.Context, req *product.OnInventoryDeductSuccess) error {
+func (h *productEventHandlerImpl) OnInventoryDeductSuccess(ctx context.Context, req *product.OnInventoryDeductSuccess) error {
 	if req.OrderId == 0 {
 		return status.Error(codes.InvalidArgument, "orderId cannot be empty")
 	}
@@ -47,7 +47,7 @@ func (h *ProductEventHandlerImpl) OnInventoryDeductSuccess(ctx context.Context, 
 }
 
 // 注册订阅者
-func (h *ProductEventHandlerImpl) RegisterSubscriber(srv server.Server) {
+func (h *productEventHandlerImpl) RegisterSubscriber(srv server.Server) {
 	var err error
 	queue := server.SubscriberQueue("order-consumer")
 	err = micro.RegisterSubscriber("OnInventoryDeductSuccess", srv, h.OnInventoryDeductSuccess, queue)
