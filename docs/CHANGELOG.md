@@ -1,6 +1,64 @@
 
+<a name="v3.0.0"></a>
+## [v3.0.0](https://github.com/zhanshen02154/order/compare/v2.0.0...v3.0.0) (2025-12-09)
+
+### Bug Fixes
+
+* 更改应用层事件侦听器为新名称
+* 修复事件包装器元数据的时间戳转换
+* 降低pprof采样频率
+* **ETCD分布式锁:** 释放锁采用单独的超时上下文
+* **ETCD分布式锁:** ETCD分布式锁由共享session改为每个锁独立维护session。
+* **事件侦听器:** 消息的Key强制字符串类型
+
+### Code Refactoring
+
+* 接口层事件处理器结构体改为私有
+* 事件侦听器结构体改为私有，仅开放接口
+* Etcd分布式锁结构体改为私有
+* 支付回调接口收到信息改为订单处理中
+* 调整目录结构
+* **获取DB实例:** 没有事务实例则用WithContext
+
+### Features
+
+* 新增确认支付方法
+* 新增响应代码判断是否移入死信队列
+* 新增商品事件处理器
+* 新增更新支付状态
+* 事件侦听器支持传入消息的Key
+* 应用死信队列包装器
+* 新增死信队列
+* 新增事件总线
+* **broker:** 新增基于kafka的broker
+* **接口层:** 新增订单事件处理器
+* **配置结构体:** 新增Broker配置结构体
+
+### Performance Improvements
+
+* 优化依赖包
+* **pprof:** 调整pprof采样频率
+
+### BREAKING CHANGE
+
+
+基础设施层移除的目录：
+- broker
+- config
+- server
+- registory
+
+- 新增事件总线
+
+- 新增订单事件处理器
+
+- 新增基于kafka的broker
+- 新增连接broker的事件侦听器
+- 新增service客户端发布元数据处理包装器
+
+
 <a name="v2.0.0"></a>
-## v2.0.0 (2025-11-27)
+## [v2.0.0](https://github.com/zhanshen02154/order/compare/v1.0.1...v2.0.0) (2025-11-28)
 
 ### Bug Fixes
 
@@ -14,6 +72,7 @@
 * **ETCD分布式锁:** 删除AutoSyncInterval
 * **ETCD分布式锁:** 创建会话失败无需关闭
 * **打印错误日志:** 不需要格式化的使用log.Error
+* **打印错误日志:** 改用log.Errorf和log.Error
 
 ### Code Refactoring
 
@@ -47,41 +106,5 @@
 
 - 集成DTM分布式事务
 - 新增事务管理器支持子事务屏障处理的方法
-- 升级go micro框架到4.11.0
 - 重写基础设施层里涉及go micro 2.9.1的方法
-
-
-<a name="v1.0.1"></a>
-## v1.0.1 (2025-11-23)
-
-### Bug Fixes
-
-* **打印错误日志:** 改用log.Errorf和log.Error
-
-
-<a name="v1.0.0"></a>
-## v1.0.0 (2025-11-17)
-
-### Bug Fixes
-
-* 设置订单服务客户端超时时间
-* 已支付成功的订单不再操作
-* **client:** 修复商品服务客户端Consul.watch异常的问题
-* **config:** 修复配置错误问题
-* **main函数:** 优化服务beforeStop逻辑
-
-### Code Refactoring
-
-* **all:** 修改go mod名称
-* **infrastructure:** 调整初始化数据库及健康检查探针
-
-### Features
-
-* **config:** 增加健康检查探针地址
-* **consul register:** 修复WaitTime超时设置失效问题
-
-### Performance Improvements
-
-* **ProductClient:** 更改商品服务客户端初始化逻辑
-* **proto:** 细化返回结果
 
