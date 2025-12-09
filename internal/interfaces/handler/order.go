@@ -28,6 +28,11 @@ func (o *OrderHandler) GetOrderById(ctx context.Context, request *order.OrderId,
 
 // 支付回调
 func (o *OrderHandler) PayNotify(ctx context.Context, in *order.PayNotifyRequest, resp *order.PayNotifyResponse) error {
+	if in.OutTradeNo == "" {
+		resp.StatusCode = "9999"
+		resp.Msg = "OutTradeNo cannot be empty or null"
+		return nil
+	}
 	err := o.OrderAppService.PayNotify(ctx, in)
 	if err != nil {
 		resp.StatusCode = "9999"

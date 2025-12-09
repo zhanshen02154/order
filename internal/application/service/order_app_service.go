@@ -2,34 +2,42 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	orderevent "github.com/zhanshen02154/order/internal/domain/event/order"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/service"
 	"github.com/zhanshen02154/order/internal/infrastructure"
+	"github.com/zhanshen02154/order/internal/infrastructure/event"
 	"github.com/zhanshen02154/order/proto/order"
-	"github.com/zhanshen02154/order/proto/product"
-	"time"
+	"go-micro.dev/v4/logger"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type IOrderApplicationService interface {
 	FindOrderByID(ctx context.Context, id int64) (*model.Order, error)
 	PayNotify(ctx context.Context, req *order.PayNotifyRequest) error
+	RevertPayStatus(ctx context.Context, orderId int64) error
+	ConfirmPayment(ctx context.Context, orderId int64) error
 }
 
 type OrderApplicationService struct {
 	orderDataService service.IOrderDataService
 	serviceContext   *infrastructure.ServiceContext
+	eb               event.Listener
 }
 
 // 创建
 func NewOrderApplicationService(
 	serviceContext *infrastructure.ServiceContext,
+	eb event.Listener,
 ) IOrderApplicationService {
-	return &OrderApplicationService{
+	srv := &OrderApplicationService{
 		orderDataService: service.NewOrderDataService(serviceContext.OrderRepository),
-		serviceContext: serviceContext,
+		serviceContext:   serviceContext,
+		eb:               eb,
 	}
+	return srv
 }
 
 // 根据ID获取订单信息
@@ -39,51 +47,91 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 
 // 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
-	timeoutCtx, timeoutCtxFunc := context.WithTimeout(context.Background(), 30 * time.Second)
-	defer timeoutCtxFunc()
-	lock, err := appService.serviceContext.LockManager.NewLock(timeoutCtx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo))
+	lock, err := appService.serviceContext.LockManager.NewLock(ctx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo), 25)
 	if err != nil {
 		return err
 	}
-	ok, err := lock.TryLock(timeoutCtx)
-	defer lock.UnLock(timeoutCtx)
+	err = lock.TryLock(ctx)
+	defer func() {
+		if err := lock.UnLock(ctx); err != nil {
+			logger.Error("failed to unlock ", lock.GetKey(ctx), " error: ", err)
+		}
+	}()
 	if err != nil {
 		return err
-	}
-	if !ok {
-		return errors.New(fmt.Sprintf("duplicate notify: %s", req.OutTradeNo))
 	}
 
 	orderInfo, err := appService.serviceContext.OrderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
 	if err != nil {
 		return err
 	}
-	if orderInfo.PayTime.Time.Unix() > 0 && orderInfo.PayStatus > 2 {
+	if orderInfo.PayTime.Time.Unix() > 0 || orderInfo.PayStatus > 2 {
 		return nil
 	}
-	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
-		return appService.orderDataService.UpdateOrderPayStatus(txCtx, orderInfo, req)
+
+	return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+		// 标记为处理中
+		err = appService.orderDataService.UpdateOrderPayStatus(txCtx, orderInfo.Id, 3)
+		if err != nil {
+			return err
+		}
+
+		// 发布事件
+		onPaymentSuccessEvent := &orderevent.OnPaymentSuccess{
+			OrderId:  orderInfo.Id,
+			Products: make([]*orderevent.ProductInventoryItem, 0),
+		}
+		if orderInfo.OrderDetail != nil {
+			for _, item := range orderInfo.OrderDetail {
+				onPaymentSuccessEvent.Products = append(onPaymentSuccessEvent.Products, &orderevent.ProductInventoryItem{
+					ProductId:     item.ProductId,
+					ProductNum:    item.ProductNum,
+					ProductSizeId: item.ProductSizeId,
+				})
+			}
+			err = appService.eb.Publish(txCtx, "OnPaymentSuccess", onPaymentSuccessEvent, fmt.Sprintf("%d", orderInfo.Id))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
+}
+
+// 恢复支付状态
+func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, orderId int64) error {
+	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
 	if err != nil {
-		return err
+		return status.Errorf(codes.Internal, "order_id %d find error: ", orderId, err)
+	}
+	if orderInfo == nil {
+		return status.Errorf(codes.Aborted, "order_id %d not found", orderId, err)
+	}
+	return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+		err := appService.orderDataService.UpdateOrderPayStatus(ctx, orderId, 5)
+		if err != nil {
+			return status.Errorf(codes.Aborted, "failed to update status: %d", orderId)
+		}
+		return nil
+	})
+}
+
+// 确认支付
+func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, orderId int64) error {
+	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
+	if err != nil {
+		return status.Errorf(codes.Internal, "order_id %d find error: ", orderId, err)
+	}
+	if orderInfo == nil {
+		return status.Errorf(codes.Aborted, "order_id %d not found", orderId, err)
 	}
 
-	productReq := &product.OrderDetailReq{
-		OrderId: orderInfo.Id,
-		Products: []*product.ProductInvetoryItem{},
-	}
-	for _, item := range orderInfo.OrderDetail {
-		productReq.Products = append(productReq.Products, &product.ProductInvetoryItem{
-			ProductId:     item.ProductId,
-			ProductNum:    item.ProductNum,
-			ProductSizeId: item.ProductSizeId,
-		})
-	}
-	productSvcAddr := appService.serviceContext.Conf.Consumer.Product.Addr
-	saga := appService.serviceContext.Dtm.BeginGrpcSaga(ctx).
-		Add(productSvcAddr + "/DeductInvetory",
-		productSvcAddr + "/DeductInvetoryRevert", productReq)
-	saga.TimeoutToFail = 30
-	err =  saga.Submit()
+	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+		err := appService.orderDataService.ConfirmPayment(txCtx, orderInfo)
+		if err != nil {
+			return status.Errorf(codes.Aborted, "failed to confirm payment on %d, error: %s", orderInfo.Id, err.Error())
+		}
+		return nil
+	})
 	return err
 }

@@ -22,13 +22,13 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(conf *config.SysConfig) (*ServiceContext, error) {
-	db, err := persistence.InitDB(&conf.Database)
+	db, err := persistence.InitDB(conf.Database)
 	if err != nil {
 		return nil, err
 	}
 
 	// 加载ETCD分布式锁
-	lockMgr, err := NewEtcdLockManager(&conf.Etcd)
+	lockMgr, err := NewEtcdLockManager(conf.Etcd)
 	if err != nil {
 		logger.Errorf(fmt.Sprintf("failed to load lock manager: %v", err))
 		return nil, err
