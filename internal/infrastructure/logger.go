@@ -86,7 +86,6 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			if err != nil {
 				w.logger.Error(strBuilder.String(), logFields...)
 			}else {
-				logFields = append(logFields, zap.String("error", ""))
 				w.logger.Info(strBuilder.String(), logFields...)
 			}
 			return err
