@@ -36,32 +36,23 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		userAgent := metadatahelper.GetValueFromMetadata(ctx, "user-agent")
 		remote := metadatahelper.GetValueFromMetadata(ctx, "Remote")
 		acceptEncoding := metadatahelper.GetValueFromMetadata(ctx, "accept-encoding")
+		logFields := []zap.Field{
+			zap.String("trace_id", traceId),
+			zap.String("service", req.Service()),
+			zap.String("method", req.Method()),
+			zap.String("endpoint", req.Endpoint()),
+			zap.String("content_type", req.ContentType()),
+			zap.String("user_agent", userAgent),
+			zap.String("accept_encoding", acceptEncoding),
+			zap.String("remote", remote),
+			zap.Int64("duration", duration),
+		}
 		if err != nil {
-			w.logger.Error("request failed",
-				zap.String("trace_id", traceId),
-				zap.String("service", req.Service()),
-				zap.String("method", req.Method()),
-				zap.String("endpoint", req.Endpoint()),
-				zap.String("content_type", req.ContentType()),
-				zap.String("user_agent", userAgent),
-				zap.String("accept_encoding", acceptEncoding),
-				zap.String("remote", remote),
-				zap.Int64("duration", duration),
-				zap.Error(err),
-			)
-		} else {
-			w.logger.Info("request success",
-				zap.String("trace_id", traceId),
-				zap.String("service", req.Service()),
-				zap.String("method", req.Method()),
-				zap.String("endpoint", req.Endpoint()),
-				zap.String("content_type", req.ContentType()),
-				zap.String("user_agent", userAgent),
-				zap.String("accept_encoding", acceptEncoding),
-				zap.String("remote", remote),
-				zap.Int64("duration", duration),
-				zap.String("error", ""),
-			)
+			logFields = append(logFields, zap.Error(err))
+			w.logger.Error("request failed", logFields...)
+		}else {
+			logFields = append(logFields, zap.String("error", ""))
+			w.logger.Info("request success", logFields...)
 		}
 		return err
 	}
@@ -81,36 +72,25 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			}else {
 				strBuilder.WriteString(fmt.Sprintf("topic: %s handle success", msg.Topic()))
 			}
+			logFields := []zap.Field{
+				zap.String("trace_id", metadatahelper.GetValueFromMetadata(ctx, "Trace_id")),
+				zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
+				zap.String("topic", msg.Topic()),
+				zap.String("source", metadatahelper.GetValueFromMetadata(ctx, "Source")),
+				zap.String("schema_version", metadatahelper.GetValueFromMetadata(ctx, "Schema_version")),
+				zap.String("published_at", metadatahelper.GetValueFromMetadata(ctx, "Timestamp")),
+				zap.String("grpc_accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Grpc-Accept-Encoding")),
+				zap.String("remote", metadatahelper.GetValueFromMetadata(ctx, "Remote")),
+				zap.String("accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Accept-Encoding")),
+				zap.String("key", metadatahelper.GetValueFromMetadata(ctx, "Pkey")),
+				zap.Int64("duration", duration),
+			}
 			if err != nil {
-				w.logger.Error(strBuilder.String(),
-					zap.String("trace_id", metadatahelper.GetValueFromMetadata(ctx, "Trace_id")),
-					zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
-					zap.String("topic", msg.Topic()),
-					zap.String("source", metadatahelper.GetValueFromMetadata(ctx, "Source")),
-					zap.String("schema_version", metadatahelper.GetValueFromMetadata(ctx, "Schema_version")),
-					zap.String("published_at", metadatahelper.GetValueFromMetadata(ctx, "Timestamp")),
-					zap.String("grpc_accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Grpc-Accept-Encoding")),
-					zap.String("remote", metadatahelper.GetValueFromMetadata(ctx, "Remote")),
-					zap.String("accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Accept-Encoding")),
-					zap.String("key", metadatahelper.GetValueFromMetadata(ctx, "Pkey")),
-					zap.Int64("duration", duration),
-					zap.Error(err),
-				)
+				logFields = append(logFields, zap.Error(err))
+				w.logger.Error(strBuilder.String(), logFields...)
 			}else {
-				w.logger.Info(strBuilder.String(),
-					zap.String("trace_id", metadatahelper.GetValueFromMetadata(ctx, "Trace_id")),
-					zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
-					zap.String("topic", msg.Topic()),
-					zap.String("source", metadatahelper.GetValueFromMetadata(ctx, "Source")),
-					zap.String("schema_version", metadatahelper.GetValueFromMetadata(ctx, "Schema_version")),
-					zap.String("published_at", metadatahelper.GetValueFromMetadata(ctx, "Timestamp")),
-					zap.String("grpc_accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Grpc-Accept-Encoding")),
-					zap.String("remote", metadatahelper.GetValueFromMetadata(ctx, "Remote")),
-					zap.String("accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Accept-Encoding")),
-					zap.String("key", metadatahelper.GetValueFromMetadata(ctx, "Pkey")),
-					zap.Int64("duration", duration),
-					zap.String("error", ""),
-				)
+				logFields = append(logFields, zap.String("error", ""))
+				w.logger.Info(strBuilder.String(), logFields...)
 			}
 			return err
 		}
