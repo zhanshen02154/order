@@ -18,10 +18,11 @@ import (
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/server"
+	"go.uber.org/zap"
 	"time"
 )
 
-func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceContext) error {
+func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceContext, zapLogger *zap.Logger) error {
 	//注册中心
 	consulRegistry := infrastructure.ConsulRegister(conf.Consul)
 
@@ -32,12 +33,12 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		pprofSrv = infrastructure.NewPprofServer(":6060")
 	}
 
-
 	//tableInit.InitTable()
 
 	//common.PrometheusBoot(PrometheusPort)
 
 	// New Service
+	logWrapper := infrastructure.NewLogWrapper(zapLogger)
 	client := grpcclient.NewClient(
 		grpcclient.PoolMaxIdle(100),
 		)
@@ -58,7 +59,10 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
-		micro.WrapHandler(ratelimit.NewHandlerWrapper(conf.Service.Qps)),
+		micro.WrapHandler(
+			logWrapper.RequestLogWrapper,
+			ratelimit.NewHandlerWrapper(conf.Service.Qps),
+			),
 		micro.Broker(broker),
 
 		//添加监控
@@ -86,11 +90,13 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 					logger.Error("pprof服务器关闭错误: ", err)
 				}
 			}
-
 			return nil
 		}),
 		micro.WrapClient(wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version)),
-		micro.WrapSubscriber(dealLetterWrapper.Wrapper()),
+		micro.WrapSubscriber(
+			dealLetterWrapper.Wrapper(),
+			logWrapper.SubscribeWrapper(),
+		),
 	)
 
 	// 注册应用层服务及事件侦听器

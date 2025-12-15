@@ -19,7 +19,6 @@ func (w *DeadLetterWrapper) Wrapper() server.SubscriberWrapper {
 	return func(next server.SubscriberFunc) server.SubscriberFunc {
 		return func(ctx context.Context, msg server.Message) error {
 			err := next(ctx, msg)
-			logger.Info("error info: ", err)
 			if err == nil {
 				return nil
 			}
@@ -43,7 +42,6 @@ func (w *DeadLetterWrapper) Wrapper() server.SubscriberWrapper {
 				return err
 			}
 
-			logger.Info("开始执行死信队列")
 			dlMsg := &broker.Message{
 				Header: msg.Header(),
 				Body:   msg.Body(),
@@ -53,8 +51,7 @@ func (w *DeadLetterWrapper) Wrapper() server.SubscriberWrapper {
 			if err := w.b.Publish(topic, dlMsg); err != nil {
 				logger.Errorf("failed to publish to %s, error: %s", topic, err.Error())
 			}
-			logger.Info("死信队列结束")
-			return nil
+			return err
 		}
 	}
 }
