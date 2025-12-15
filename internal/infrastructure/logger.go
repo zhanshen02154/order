@@ -145,14 +145,13 @@ func (l *gormLogger) Error(ctx context.Context, str string, args ...interface{})
 
 // Trace日志
 func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
-	if l.level <= logger.Info {
+	if l.level < logger.Info {
 		return
 	}
 	// 获取运行时间
 	elapsed := time.Since(begin).Milliseconds()
 	// 获取 SQL 请求和返回条数
 	sql, rows := fc()
-
 	// 通用字段
 	traceId := metadatahelper.GetValueFromMetadata(ctx, "Trace_id")
 	logFields := []zap.Field{
@@ -163,15 +162,10 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	}
 
 	// Gorm 错误
-	if err != nil {
-		// 记录未找到的错误使用 warning 等级
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			l.logger.Warn("Database ErrRecordNotFound", logFields...)
-		} else {
-			// 其他错误使用 error 等级
-			logFields = append(logFields, zap.Error(err))
-			l.logger.Error("Database Error", logFields...)
-		}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		// 其他错误使用 error 等级
+		logFields = append(logFields, zap.Error(err))
+		l.logger.Error("Database Error", logFields...)
 	}
 
 	// 慢查询日志
@@ -180,7 +174,9 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	}
 
 	// 记录所有 SQL 请求
-	l.logger.Info("Database Query", logFields...)
+	if l.level == logger.Info {
+		l.logger.Info("Database Query", logFields...)
+	}
 }
 
 // 创建GORM Logger
