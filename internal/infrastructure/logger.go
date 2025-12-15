@@ -48,10 +48,8 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 			zap.Int64("duration", duration),
 		}
 		if err != nil {
-			logFields = append(logFields, zap.Error(err))
-			w.logger.Error("request failed", logFields...)
+			w.logger.Error(fmt.Sprintf("request failed: %s", err.Error()), logFields...)
 		}else {
-			logFields = append(logFields, zap.String("error", ""))
 			w.logger.Info("request success", logFields...)
 		}
 		return err
@@ -68,7 +66,7 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			duration := time.Since(startTime).Milliseconds()
 			var strBuilder strings.Builder
 			if err != nil {
-				strBuilder.WriteString(fmt.Sprintf("failed to subscribe on %s", msg.Topic()))
+				strBuilder.WriteString(fmt.Sprintf("failed to subscribe on %s: %s", msg.Topic(), err.Error()))
 			}else {
 				strBuilder.WriteString(fmt.Sprintf("topic: %s handle success", msg.Topic()))
 			}
@@ -86,7 +84,6 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 				zap.Int64("duration", duration),
 			}
 			if err != nil {
-				logFields = append(logFields, zap.Error(err))
 				w.logger.Error(strBuilder.String(), logFields...)
 			}else {
 				logFields = append(logFields, zap.String("error", ""))
