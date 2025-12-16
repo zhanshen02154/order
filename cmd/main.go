@@ -49,6 +49,7 @@ func main() {
 	zapLogger.With(
 		zap.String("service", confInfo.Service.Name),
 		zap.String("version", confInfo.Service.Version),
+		zap.String("type", "core"),
 	)
 	loggerMetadataMap["service"] = confInfo.Service.Name
 	loggerMetadataMap["version"] = confInfo.Service.Version

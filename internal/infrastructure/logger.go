@@ -39,6 +39,7 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		remote := metadatahelper.GetValueFromMetadata(ctx, "Remote")
 		acceptEncoding := metadatahelper.GetValueFromMetadata(ctx, "accept-encoding")
 		logFields := []zap.Field{
+			zap.String("type", "request"),
 			zap.String("trace_id", traceId),
 			zap.String("service", req.Service()),
 			zap.String("method", req.Method()),
@@ -77,7 +78,7 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 				micrologger.Error("failed to convert publushed at: ", err.Error())
 			}
 			logFields := []zap.Field{
-				zap.String("log_type", "subscribe"),
+				zap.String("type", "subscribe"),
 				zap.String("trace_id", metadatahelper.GetValueFromMetadata(ctx, "Trace_id")),
 				zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
 				zap.String("topic", msg.Topic()),
@@ -138,6 +139,7 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	// 通用字段
 	traceId := metadatahelper.GetValueFromMetadata(ctx, "Trace_id")
 	logFields := []zap.Field{
+		zap.String("type", "sql"),
 		zap.String("trace_id", traceId),
 		zap.String("sql", sql),
 		zap.Int64("time", elapsed),
