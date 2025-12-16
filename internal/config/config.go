@@ -52,6 +52,7 @@ type MySqlConfig struct {
 	MaxOpenConns    int    `json:"max_open_conns" yaml:"max_open_conns"`
 	MaxIdleConns    int    `json:"max_idle_conns" yaml:"max_idle_conns"`
 	ConnMaxLifeTime uint   `json:"conn_max_life_time" yaml:"conn_max_life_time"`
+	LogLevel        int    `json:"log_level" yaml:"log_level"`
 }
 
 type Etcd struct {
@@ -78,9 +79,9 @@ type Transaction struct {
 }
 
 type Broker struct {
-	Driver string `json:"driver" yaml:"driver"`
-	Kafka  *Kafka `json:"kafka" yaml:"kafka"`
-	Publisher []string `json:"publisher" yaml:"publisher"`
+	Driver     string   `json:"driver" yaml:"driver"`
+	Kafka      *Kafka   `json:"kafka" yaml:"kafka"`
+	Publisher  []string `json:"publisher" yaml:"publisher"`
 	Subscriber []string `json:"subscriber" yaml:"subscriber"`
 }
 
@@ -94,10 +95,10 @@ type Kafka struct {
 }
 
 type KafkaProducer struct {
-	MaxRetry        int  `json:"max_retry" yaml:"max_retry"`
-	MaxRetryBackOff int  `json:"max_retry_back_off" yaml:"max_retry_back_off"`
-	FlushBytes      int  `json:"flush_bytes" yaml:"flush_bytes"`
-	MaxOpenRequests int  `json:"max_open_requests" yaml:"max_open_requests"`
+	MaxRetry        int `json:"max_retry" yaml:"max_retry"`
+	MaxRetryBackOff int `json:"max_retry_back_off" yaml:"max_retry_back_off"`
+	FlushBytes      int `json:"flush_bytes" yaml:"flush_bytes"`
+	MaxOpenRequests int `json:"max_open_requests" yaml:"max_open_requests"`
 }
 
 type KafkaConsumer struct {
