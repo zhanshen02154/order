@@ -92,7 +92,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			}
 			return nil
 		}),
-		micro.WrapClient(wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version)),
+		micro.WrapClient(wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version, zapLogger)),
 		micro.WrapSubscriber(
 			dealLetterWrapper.Wrapper(),
 			logWrapper.SubscribeWrapper(),

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	metadatahelper "github.com/zhanshen02154/order/pkg/metadata"
+	micrologger "go-micro.dev/v4/logger"
 	"go-micro.dev/v4/metadata"
 	"go-micro.dev/v4/server"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -70,13 +72,18 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			}else {
 				strBuilder.WriteString(fmt.Sprintf("topic: %s handle success", msg.Topic()))
 			}
+			publishedAt, err := strconv.ParseInt(metadatahelper.GetValueFromMetadata(ctx, "Timestamp"), 10, 64)
+			if err != nil {
+				micrologger.Error("failed to convert publushed at: ", err.Error())
+			}
 			logFields := []zap.Field{
+				zap.String("log_type", "subscribe"),
 				zap.String("trace_id", metadatahelper.GetValueFromMetadata(ctx, "Trace_id")),
 				zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
 				zap.String("topic", msg.Topic()),
 				zap.String("source", metadatahelper.GetValueFromMetadata(ctx, "Source")),
 				zap.String("schema_version", metadatahelper.GetValueFromMetadata(ctx, "Schema_version")),
-				zap.String("published_at", metadatahelper.GetValueFromMetadata(ctx, "Timestamp")),
+				zap.Int64("published_at", publishedAt),
 				zap.String("grpc_accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Grpc-Accept-Encoding")),
 				zap.String("remote", metadatahelper.GetValueFromMetadata(ctx, "Remote")),
 				zap.String("accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Accept-Encoding")),
