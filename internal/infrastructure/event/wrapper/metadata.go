@@ -45,7 +45,7 @@ func (w *MetaDataWrapper) Publish(ctx context.Context, msg client.Message, opts 
 		w.loggerFieldsPool.Put(logFields)
 	}()
 	logFields = append(logFields,
-		zap.String("log_type", "publish"),
+		zap.String("type", "publish"),
 		zap.String("trace_id", metadatahelper.GetValueFromMetadata(ctx, "Trace_id")),
 		zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, eventId)),
 		zap.String("topic", msg.Topic()),
