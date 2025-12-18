@@ -46,7 +46,7 @@ func main() {
 		return
 	}
 
-	zapLogger.With(
+	componentLogger := zapLogger.With(
 		zap.String("service", confInfo.Service.Name),
 		zap.String("version", confInfo.Service.Version),
 	)
@@ -65,7 +65,7 @@ func main() {
 	//}
 	//defer io.Close()
 	//opetracing2.SetGlobalTracer(t)
-	gormLogger := infrastructure.NewGromLogger(zapLogger, confInfo.Database.LogLevel)
+	gormLogger := infrastructure.NewGromLogger(componentLogger, confInfo.Database.LogLevel)
 	serviceContext, err := infrastructure.NewServiceContext(&confInfo, gormLogger)
 	if err != nil {
 		logger.Error("error to load service context: ", err)
@@ -74,7 +74,7 @@ func main() {
 	defer serviceContext.Close()
 
 
-	if err := bootstrap.RunService(&confInfo, serviceContext, zapLogger); err != nil {
+	if err := bootstrap.RunService(&confInfo, serviceContext, componentLogger); err != nil {
 		logger.Error("failed to start service: ", err)
 	}
 }
