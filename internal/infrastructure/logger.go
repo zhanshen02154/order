@@ -41,7 +41,6 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		logFields := []zap.Field{
 			zap.String("type", "request"),
 			zap.String("trace_id", traceId),
-			zap.String("service", req.Service()),
 			zap.String("method", req.Method()),
 			zap.String("endpoint", req.Endpoint()),
 			zap.String("content_type", req.ContentType()),

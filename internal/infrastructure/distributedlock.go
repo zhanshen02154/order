@@ -22,7 +22,6 @@ type DistributedLock interface {
 // ETCD锁
 type etcdLock struct {
 	mutex *concurrency.Mutex
-	session  *concurrency.Session
 }
 
 // 获取键名
@@ -42,15 +41,10 @@ func (l *etcdLock) TryLock(ctx context.Context) error {
 
 // 解锁
 func (l *etcdLock) UnLock(ctx context.Context) error {
-	timeoutCtx, ctxCancelFunc := context.WithTimeout(context.Background(), time.Second * 3)
+	timeoutCtx, ctxCancelFunc := context.WithTimeout(context.Background(), time.Second*3)
 	defer ctxCancelFunc()
-	err := l.mutex.Unlock(timeoutCtx)
-	closeErr := l.session.Close()
-	if err != nil {
+	if err := l.mutex.Unlock(timeoutCtx); err != nil {
 		return fmt.Errorf("failed to unlock %s: %v", l.mutex.Key(), err)
-	}
-	if closeErr != nil {
-		logger.Error("failed to close session: ", err)
 	}
 	return nil
 }
@@ -63,10 +57,12 @@ type LockManager interface {
 
 // etcdLockManager ETCD分布式锁
 type etcdLockManager struct {
-	ecli     *clientv3.Client
-	prefix   string
-	isClosed bool
-	mu       sync.RWMutex
+	ecli       *clientv3.Client
+	prefix     string
+	isClosed   bool
+	mu         sync.RWMutex
+	sessions   map[int]*concurrency.Session
+	sessionsMu sync.Mutex
 }
 
 // Close 关闭客户端
@@ -75,6 +71,15 @@ func (elm *etcdLockManager) Close() error {
 	defer elm.mu.Unlock()
 
 	elm.isClosed = true
+	elm.sessionsMu.Lock()
+	for ttl, s := range elm.sessions {
+		if s != nil {
+			_ = s.Close()
+		}
+		delete(elm.sessions, ttl)
+	}
+	elm.sessionsMu.Unlock()
+
 	return elm.ecli.Close()
 }
 
@@ -86,15 +91,33 @@ func (elm *etcdLockManager) NewLock(ctx context.Context, key string, ttl int) (D
 	if elm.isClosed {
 		return nil, fmt.Errorf("etcd client was closed")
 	}
-	session, err := concurrency.NewSession(elm.ecli, concurrency.WithTTL(ttl))
+	session, err := elm.getOrCreateSession(ttl)
 	if err != nil {
 		return nil, err
 	}
 	mutex := concurrency.NewMutex(session, fmt.Sprintf("%slock/%s", elm.prefix, key))
 	return &etcdLock{
 		mutex: mutex,
-		session: session,
 	}, nil
+}
+
+// getOrCreateSession 获取/创建会话
+func (elm *etcdLockManager) getOrCreateSession(ttl int) (*concurrency.Session, error) {
+	elm.sessionsMu.Lock()
+	defer elm.sessionsMu.Unlock()
+
+	if s, ok := elm.sessions[ttl]; ok && s != nil {
+		return s, nil
+	}
+	s, err := concurrency.NewSession(elm.ecli, concurrency.WithTTL(ttl))
+	if err != nil {
+		return nil, err
+	}
+	if elm.sessions == nil {
+		elm.sessions = make(map[int]*concurrency.Session)
+	}
+	elm.sessions[ttl] = s
+	return s, nil
 }
 
 // 创建分布式锁
@@ -113,5 +136,5 @@ func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 		return nil, err
 	}
 	logger.Info("ETCD was stared")
-	return &etcdLockManager{ecli: client, prefix: conf.Prefix}, nil
+	return &etcdLockManager{ecli: client, prefix: conf.Prefix, sessions: make(map[int]*concurrency.Session)}, nil
 }
