@@ -78,6 +78,7 @@ func (elm *etcdLockManager) Close() error {
 		}
 		delete(elm.sessions, ttl)
 	}
+	elm.sessions = nil
 	elm.sessionsMu.Unlock()
 
 	return elm.ecli.Close()
