@@ -64,11 +64,12 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			ratelimit.NewHandlerWrapper(conf.Service.Qps),
 			),
 		micro.Broker(broker),
-
 		//添加监控
 		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.AfterStart(func() error {
-			pprofSrv.Start()
+			if pprofSrv != nil {
+				pprofSrv.Start()
+			}
 			if err := broker.Connect(); err != nil {
 				return err
 			}
