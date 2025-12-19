@@ -27,6 +27,8 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig.Metadata.AllowAutoTopicCreation = false
 	kafkaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 	kafkaConfig.Net.MaxOpenRequests = 10
+	kafkaConfig.Consumer.Fetch.Min = 256000
+	kafkaConfig.Consumer.Fetch.Max = 1048576
 	kafkaConfig.Consumer.Group.Session.Timeout = time.Second * time.Duration(conf.Consumer.Group.SessionTimeout)
 	return kafkaConfig
 }
