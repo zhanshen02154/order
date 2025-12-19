@@ -74,13 +74,11 @@ func (l *microListener) Close() {
 	if l.eventPublisher == nil {
 		return
 	}
-	if len(l.eventPublisher) > 0 {
-		return
-	}
-	for k, _ := range l.eventPublisher {
+	for k := range l.eventPublisher {
 		delete(l.eventPublisher, k)
 		logger.Info("event: ", k, " unregistered")
 	}
+	l.eventPublisher = nil
 }
 
 // 新建侦听器
