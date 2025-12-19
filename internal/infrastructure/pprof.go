@@ -31,11 +31,10 @@ func NewPprofServer(addr string) *PprofServer {
 
 // Start 启动pprof
 func (srv *PprofServer) Start() {
-	var wg sync.WaitGroup
-	wg.Add(1)
+	srv.wg.Add(1)
 	logger.Info("启动pprof")
 	go func() {
-		defer wg.Done()
+		defer srv.wg.Done()
 		err := srv.server.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			logger.Error("pprof服务器启动失败")
