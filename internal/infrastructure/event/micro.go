@@ -7,6 +7,7 @@ import (
 	"go-micro.dev/v4/client"
 	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/metadata"
+	"go.uber.org/zap"
 	"sync"
 )
 
@@ -17,6 +18,7 @@ type microListener struct {
 	mu sync.RWMutex
 	eventPublisher map[string]micro.Event
 	c client.Client
+	logger *zap.Logger
 }
 
 // 发布
@@ -33,7 +35,8 @@ func (l *microListener) Publish(ctx context.Context, topic string, msg interface
 			ctx = metadata.Set(ctx, partitionKey, key)
 		}
 	}
-	return l.eventPublisher[topic].Publish(ctx, msg, opts...)
+	err :=  l.eventPublisher[topic].Publish(ctx, msg, opts...)
+	return err
 }
 
 // 注册
@@ -71,13 +74,11 @@ func (l *microListener) Close() {
 	if l.eventPublisher == nil {
 		return
 	}
-	if len(l.eventPublisher) > 0 {
-		return
-	}
-	for k, _ := range l.eventPublisher {
+	for k := range l.eventPublisher {
 		delete(l.eventPublisher, k)
 		logger.Info("event: ", k, " unregistered")
 	}
+	l.eventPublisher = nil
 }
 
 // 新建侦听器

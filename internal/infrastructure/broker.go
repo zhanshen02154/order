@@ -5,8 +5,7 @@ import (
 	"github.com/go-micro/plugins/v4/broker/kafka"
 	"github.com/zhanshen02154/order/internal/config"
 	"go-micro.dev/v4/broker"
-	"log"
-	"os"
+	"go-micro.dev/v4/logger"
 	"time"
 )
 
@@ -24,19 +23,21 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig.Producer.Flush.Frequency = 100 * time.Millisecond
 	kafkaConfig.Producer.Compression = sarama.CompressionGZIP
 	kafkaConfig.Producer.Partitioner = sarama.NewHashPartitioner
-	kafkaConfig.Producer.Idempotent = true
+	kafkaConfig.Producer.Idempotent = false
 	kafkaConfig.Metadata.AllowAutoTopicCreation = false
 	kafkaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
-	kafkaConfig.Net.MaxOpenRequests = 1
+	kafkaConfig.Net.MaxOpenRequests = 10
+	kafkaConfig.Consumer.Fetch.Min = 256000
+	kafkaConfig.Consumer.Fetch.Max = 1048576
 	kafkaConfig.Consumer.Group.Session.Timeout = time.Second * time.Duration(conf.Consumer.Group.SessionTimeout)
 	return kafkaConfig
 }
 
 // 创建Broker
 func NewKafkaBroker(conf *config.Kafka) broker.Broker {
-	sarama.Logger = log.New(os.Stdout, "[Sarama]", log.LstdFlags)
 	return kafka.NewBroker(
 		broker.Addrs(conf.Hosts...),
 		kafka.BrokerConfig(loadKafkaConfig(conf)),
+		broker.Logger(logger.DefaultLogger),
 	)
 }
