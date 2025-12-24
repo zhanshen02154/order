@@ -1,4 +1,4 @@
-package persistence
+package infrastructure
 
 import (
 	"fmt"
@@ -6,12 +6,13 @@ import (
 	"go-micro.dev/v4/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 	"net/url"
 	"time"
 )
 
 // 初始化数据库
-func InitDB(confInfo *configstruct.MySqlConfig) (*gorm.DB, error) {
+func InitDB(confInfo *configstruct.MySqlConfig, zapLogger gormlogger.Interface) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=%s",
 		confInfo.User,
 		confInfo.Password,
@@ -25,7 +26,7 @@ func InitDB(confInfo *configstruct.MySqlConfig) (*gorm.DB, error) {
 		DSN:                       dsn,
 		SkipInitializeWithVersion: false,
 		DefaultStringSize:         50,
-	}), &gorm.Config{SkipDefaultTransaction: true})
+	}), &gorm.Config{SkipDefaultTransaction: true, Logger: zapLogger})
 	if err != nil {
 		return nil, err
 	}

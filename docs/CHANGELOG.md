@@ -1,9 +1,45 @@
 
+<a name="v4.0.0"></a>
+## [v4.0.0](https://github.com/zhanshen02154/order/compare/v3.0.0...v4.0.0) (2025-12-23)
+
+### Bug Fixes
+
+* 调整kafka拉取数据量
+* 修复发布事件日志类型
+* **GORM日志:** 关闭Info以下级别的日志
+* **pprof:** 默认直接启动pprof
+* **pprof:** 修复pprof协程控制问题
+* **事件侦听器:** map全部清除后设置为nil
+* **分布式锁:** map全部清除后设置为nil
+* **日志组件:** 修复无法记录service和version的问题
+
+### Code Refactoring
+
+* 移除product的proto
+* 删除订阅事件日志的error字段
+* 删除error字段
+* 调整日志记录器
+* **ETCD分布式锁:** 采用共享Session
+* **broker:** 扩大请求数量
+
+### Features
+
+* 添加订阅事件日志和请求日志（含GORM日志）
+* **发布事件:** 新增日志记录
+* **日志:** 优化日志类型
+* **日志:** 新增日志类型
+
+### Performance Improvements
+
+* **事务管理:** 用独立会话启动事务
+
+
 <a name="v3.0.0"></a>
 ## [v3.0.0](https://github.com/zhanshen02154/order/compare/v2.0.0...v3.0.0) (2025-12-09)
 
 ### Bug Fixes
 
+* 删除示例事件
 * 更改应用层事件侦听器为新名称
 * 修复事件包装器元数据的时间戳转换
 * 降低pprof采样频率
@@ -18,6 +54,7 @@
 * Etcd分布式锁结构体改为私有
 * 支付回调接口收到信息改为订单处理中
 * 调整目录结构
+* **pprof:** 导入pprof包
 * **获取DB实例:** 没有事务实例则用WithContext
 
 ### Features
@@ -106,5 +143,43 @@
 
 - 集成DTM分布式事务
 - 新增事务管理器支持子事务屏障处理的方法
+
 - 重写基础设施层里涉及go micro 2.9.1的方法
+
+
+<a name="v1.0.1"></a>
+## [v1.0.1](https://github.com/zhanshen02154/order/compare/v1.0.0...v1.0.1) (2025-11-23)
+
+### Bug Fixes
+
+* **打印错误日志:** 改用log.Errorf和log.Error
+
+
+<a name="v1.0.0"></a>
+## v1.0.0 (2025-11-17)
+
+### Bug Fixes
+
+* 设置订单服务客户端超时时间
+* 已支付成功的订单不再操作
+* 已支付成功的订单不再操作
+* **client:** 修复商品服务客户端Consul.watch异常的问题
+* **config:** 修复配置错误问题
+* **main函数:** 优化服务beforeStop逻辑
+
+### Code Refactoring
+
+* **all:** 修改go mod名称
+* **infrastructure:** 调整初始化数据库及健康检查探针
+
+### Features
+
+* **config:** 增加健康检查探针地址
+* **config:** 增加健康检查探针地址
+* **consul register:** 修复WaitTime超时设置失效问题
+
+### Performance Improvements
+
+* **ProductClient:** 更改商品服务客户端初始化逻辑
+* **proto:** 细化返回结果
 

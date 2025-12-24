@@ -26,7 +26,6 @@
 │  ├─application        应用层
 │  │  ├─dto             DTO
 │  │  └─service         应用层服务
-│  ├─config             配置
 │  ├─domain             领域层
 │  │  ├─model           模型层
 │  │  ├─repository      仓储层
@@ -34,13 +33,14 @@
 │  ├─infrastructure     基础设施层
 │  │  ├─cache           缓存
 │  │  ├─client          客户端
+│  │  ├─event           事件
 │  │  ├─config          配置
 │  │  ├─persistence     持久化
 │  │  │  ├─gorm         GORM
 │  │  │  └─transaction  事务
-│  │  └─registry        服务注册
 │  └─interfaces         接口层
-│      └─handler        
+│      ├─handler        GRPC请求处理器
+│      └─subscriber     订阅事件处理器              
 ├─pkg                   组件包
 ├─proto                 Protobuf
 │  ├─order              订单服务
@@ -48,18 +48,15 @@
 └─utils                 辅助类（即将废弃）
 ```
 
-## 工作流程
-1. 客户端请求API接口
-2. Apisix接收请求并调用Order服务
-3. Order服务更新订单状态，启动SAGA分布式事务
-4. Order服务的PayNotify调用Product服务的DeductInvetory扣减库存，失败则用DeductInvetoryRevert做事务补偿
-
 ## 技术选型
-- 开发语言：Golang 1.20.10
-- 框架：Go micro 4.11.0
-- 数据库：MySQL 5.7.26
-- 服务注册/发现：Consul 1.7.3
-- 分布式锁：ETCD 3.5.7
+### 开发语言
+- Golang 1.20.10
+- LUA
+### 框架: Go micro 4.11.0
+### 数据库: MySQL 5.7.26
+### 服务注册/发现: Consul 1.7.3
+### 分布式锁: ETCD 3.5.7
+### 消息队列: kafka 3.0.1
 
 ## 服务器配置
 | 厂商  | 配置               | 数量 | 操作系统       | Docker版本 | Kubernetes版本 |
