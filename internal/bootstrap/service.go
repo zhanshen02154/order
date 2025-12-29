@@ -62,9 +62,9 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
 		micro.WrapHandler(
-			logWrapper.RequestLogWrapper,
-			opentelemetry.NewHandlerWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
 			ratelimit.NewHandlerWrapper(conf.Service.Qps),
+			opentelemetry.NewHandlerWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
+			logWrapper.RequestLogWrapper,
 			),
 		micro.Broker(broker),
 		//添加监控
