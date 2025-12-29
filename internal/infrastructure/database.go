@@ -7,12 +7,13 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
+	"gorm.io/plugin/opentelemetry/tracing"
 	"net/url"
 	"time"
 )
 
 // 初始化数据库
-func InitDB(confInfo *configstruct.MySqlConfig, zapLogger gormlogger.Interface) (*gorm.DB, error) {
+func InitDB(confInfo *configstruct.MySqlConfig, zapLogger gormlogger.Interface, ) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=%s",
 		confInfo.User,
 		confInfo.Password,
@@ -28,6 +29,9 @@ func InitDB(confInfo *configstruct.MySqlConfig, zapLogger gormlogger.Interface) 
 		DefaultStringSize:         50,
 	}), &gorm.Config{SkipDefaultTransaction: true, Logger: zapLogger})
 	if err != nil {
+		return nil, err
+	}
+	if err := db.Use(tracing.NewPlugin(tracing.WithoutMetrics())); err != nil {
 		return nil, err
 	}
 	sqlDB, err := db.DB()
