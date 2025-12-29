@@ -19,6 +19,7 @@ func NewOrderRepository(db *gorm.DB) repository.IOrderRepository {
 func (orderRepo *OrderRepository) FindOrderByID(ctx context.Context, id int64) (*model.Order, error) {
 	db := GetDBFromContext(ctx, orderRepo.db)
 	orderInfo := &model.Order{}
+	db.Callback().Create()
 	return orderInfo, db.Preload("OrderDetail").First(orderInfo, id).Error
 }
 
