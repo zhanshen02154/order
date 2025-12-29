@@ -96,7 +96,11 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			}
 			return nil
 		}),
-		micro.WrapClient(wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version, zapLogger)),
+		micro.WrapClient(
+			wrapper.NewClientLogWrapper(zapLogger),
+			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
+			opentelemetry.NewClientWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
+			),
 		micro.WrapSubscriber(
 			dealLetterWrapper.Wrapper(),
 			logWrapper.SubscribeWrapper(),
