@@ -6,6 +6,7 @@ import (
 	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
 	"github.com/go-micro/plugins/v4/transport/grpc"
 	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
+	"github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry"
 	appservice "github.com/zhanshen02154/order/internal/application/service"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
@@ -18,6 +19,7 @@ import (
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/server"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"time"
 )
@@ -61,6 +63,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		//添加限流
 		micro.WrapHandler(
 			logWrapper.RequestLogWrapper,
+			opentelemetry.NewHandlerWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
 			ratelimit.NewHandlerWrapper(conf.Service.Qps),
 			),
 		micro.Broker(broker),

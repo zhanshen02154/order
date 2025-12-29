@@ -16,6 +16,7 @@ type SysConfig struct {
 	Consumer    *Consumer    `json:"consumer" yaml:"consumer"`
 	Transaction *Transaction `yaml:"transaction" json:"transaction"`
 	Broker      *Broker      `json:"broker" yaml:"broker"`
+	Tracer      *Tracer      `json:"tracer" yaml:"tracer"`
 }
 
 // 服务信息
@@ -110,6 +111,21 @@ type KafkaConsumerGroup struct {
 	SessionTimeout int `json:"session_timeout" yaml:"session_timeout"`
 }
 
+type Tracer struct {
+	SampleRate float64 `json:"sample_rate" yaml:"sample_rate"`
+	Client struct {
+		Insecure bool   `json:"insecure"`
+		Endpoint string `json:"endpoint" yaml:"endpoint"`
+		Timeout  int    `json:"timeout" yaml:"timeout"`
+		Retry    struct {
+			Enabled         bool `json:"enabled" yaml:"enabled"`
+			InitialInterval int  `json:"initial_interval" yaml:"initial_interval"`
+			MaxInterval     int  `json:"max_interval" yaml:"max_interval"`
+			MaxElapsedTime  int  `json:"max_elapsed_time" yaml:"max_elapsed_time"`
+		} `json:"retry" yaml:"retry"`
+	} `json:"client" yaml:"client"`
+}
+
 // 检查配置
 func (c *SysConfig) checkConfig() bool {
 	if c.Service == nil {
@@ -121,7 +137,7 @@ func (c *SysConfig) checkConfig() bool {
 // GetConfig 从consul获取配置
 func GetConfig() (config.Config, error) {
 	// 从consul获取配置
-	consulHost := env.GetEnv("CONSUL_HOST", "192.168.83.131")
+	consulHost := env.GetEnv("CONSUL_HOST", "192.168.81.128")
 	consulPort := env.GetEnv("CONSUL_PORT", "8500")
 	consulPrefix := env.GetEnv("CONSUL_PREFIX", "/micro/")
 	consulSource := consul.NewSource(
