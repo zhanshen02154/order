@@ -40,14 +40,6 @@ func main() {
 		logger.Error(err)
 		return
 	}
-	//defer func() {
-	//	if consulSource != nil {
-	//		if err := consulSource.Close(); err != nil {
-	//			logger.Error("failed to close config: ", err)
-	//		}
-	//	}
-	//	return
-	//}()
 
 	var confInfo config.SysConfig
 	if err := consulSource.Get("order").Scan(&confInfo); err != nil {
@@ -61,7 +53,7 @@ func main() {
 	)
 	loggerMetadataMap["service"] = confInfo.Service.Name
 	loggerMetadataMap["version"] = confInfo.Service.Version
-	loggerMetadataMap["type"]    = "core"
+	loggerMetadataMap["type"] = "core"
 	logger.DefaultLogger = logger.DefaultLogger.Fields(loggerMetadataMap)
 
 	if err != nil {
@@ -73,12 +65,6 @@ func main() {
 	traceShutdown := initTracer(confInfo.Service.Name, confInfo.Service.Version, confInfo.Tracer)
 	defer traceShutdown()
 
-	//t,io,err := common.NewTracer(ServiceName, "127.0.0.1:6831")
-	//if err != nil {
-	//	logger.Error(err)
-	//}
-	//defer io.Close()
-	//opetracing2.SetGlobalTracer(t)
 	gormLogger := infrastructure.NewGromLogger(componentLogger, confInfo.Database.LogLevel)
 	serviceContext, err := infrastructure.NewServiceContext(&confInfo, gormLogger)
 	if err != nil {
@@ -86,7 +72,6 @@ func main() {
 		return
 	}
 	defer serviceContext.Close()
-
 
 	if err := bootstrap.RunService(&confInfo, serviceContext, componentLogger); err != nil {
 		logger.Error("failed to start service: ", err)
@@ -97,18 +82,18 @@ func main() {
 func getEncoder() zapcore.Encoder {
 	return zapcore.NewJSONEncoder(
 		zapcore.EncoderConfig{
-			MessageKey:          "message",
-			LevelKey:            "level",
-			TimeKey:             "timestamp",
-			NameKey:             "logger",
-			CallerKey:           "caller",
-			FunctionKey:         zapcore.OmitKey,
-			StacktraceKey:       "stacktrace",
-			LineEnding:          zapcore.DefaultLineEnding,
-			EncodeLevel:         zapcore.LowercaseLevelEncoder,
-			EncodeTime:          zapcore.EpochTimeEncoder,
-			EncodeDuration:      zapcore.MillisDurationEncoder,
-			EncodeCaller:        zapcore.ShortCallerEncoder,
+			MessageKey:     "message",
+			LevelKey:       "level",
+			TimeKey:        "timestamp",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			FunctionKey:    zapcore.OmitKey,
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.LowercaseLevelEncoder,
+			EncodeTime:     zapcore.EpochTimeEncoder,
+			EncodeDuration: zapcore.MillisDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
 		})
 }
 
@@ -116,13 +101,13 @@ func getEncoder() zapcore.Encoder {
 func initTracer(serviceName string, version string, conf *config.Tracer) func() {
 	ctx := context.Background()
 	traceClient := otlptracegrpc.NewClient(
-		otlptracegrpc.WithTimeout(time.Duration(conf.Client.Timeout) * time.Second),
+		otlptracegrpc.WithTimeout(time.Duration(conf.Client.Timeout)*time.Second),
 		otlptracegrpc.WithEndpoint(conf.Client.Endpoint),
 		otlptracegrpc.WithRetry(otlptracegrpc.RetryConfig{
-			Enabled: conf.Client.Retry.Enabled,
+			Enabled:         conf.Client.Retry.Enabled,
 			InitialInterval: time.Duration(conf.Client.Retry.InitialInterval) * time.Second,
-			MaxInterval: time.Duration(conf.Client.Retry.MaxInterval) * time.Second,
-			MaxElapsedTime: time.Duration(conf.Client.Retry.MaxElapsedTime) * time.Second,
+			MaxInterval:     time.Duration(conf.Client.Retry.MaxInterval) * time.Second,
+			MaxElapsedTime:  time.Duration(conf.Client.Retry.MaxElapsedTime) * time.Second,
 		}),
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithCompressor("gzip"),
@@ -135,9 +120,7 @@ func initTracer(serviceName string, version string, conf *config.Tracer) func() 
 		),
 		resource.WithFromEnv(),
 		resource.WithProcess(),
-		resource.WithTelemetrySDK(),
 		resource.WithHost(),
-		resource.WithOS(),
 	)
 	if err != nil {
 		logger.Error("failed to create tracer resource: ", err.Error())
