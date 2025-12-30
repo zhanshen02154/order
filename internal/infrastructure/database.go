@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-// 初始化数据库
-func InitDB(confInfo *configstruct.MySqlConfig, zapLogger gormlogger.Interface, ) (*gorm.DB, error) {
+// InitDB 初始化数据库
+func InitDB(confInfo *configstruct.MySqlConfig, zapLogger gormlogger.Interface) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=%s",
 		confInfo.User,
 		confInfo.Password,
