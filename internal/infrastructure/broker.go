@@ -13,6 +13,7 @@ import (
 func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig := sarama.NewConfig()
 	kafkaConfig.Version = sarama.V3_0_0_0
+	kafkaConfig.ChannelBufferSize = conf.ChannelBufferSize
 	kafkaConfig.Net.DialTimeout = time.Duration(conf.DialTimeout) * time.Second
 	kafkaConfig.Net.ReadTimeout = time.Duration(conf.ReadTimeout) * time.Second
 	kafkaConfig.Net.WriteTimeout = time.Duration(conf.WriteTimeout) * time.Second
@@ -26,14 +27,14 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig.Producer.Idempotent = false
 	kafkaConfig.Metadata.AllowAutoTopicCreation = false
 	kafkaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
-	kafkaConfig.Net.MaxOpenRequests = 10
-	kafkaConfig.Consumer.Fetch.Min = 256000
-	kafkaConfig.Consumer.Fetch.Max = 1048576
+	kafkaConfig.Net.MaxOpenRequests = conf.Producer.MaxOpenRequests
+	kafkaConfig.Consumer.Fetch.Min = conf.Consumer.FetchMin
+	kafkaConfig.Consumer.Fetch.Max = conf.Consumer.FetchMax
 	kafkaConfig.Consumer.Group.Session.Timeout = time.Second * time.Duration(conf.Consumer.Group.SessionTimeout)
 	return kafkaConfig
 }
 
-// 创建Broker
+// NewKafkaBroker 创建Broker
 func NewKafkaBroker(conf *config.Kafka) broker.Broker {
 	return kafka.NewBroker(
 		broker.Addrs(conf.Hosts...),
