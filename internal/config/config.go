@@ -98,11 +98,11 @@ type Kafka struct {
 }
 
 type KafkaProducer struct {
-	MaxRetry        int   `json:"max_retry" yaml:"max_retry"`
-	MaxRetryBackOff int   `json:"max_retry_back_off" yaml:"max_retry_back_off"`
-	FlushBytes      int   `json:"flush_bytes" yaml:"flush_bytes"`
-	MaxOpenRequests int   `json:"max_open_requests" yaml:"max_open_requests"`
-	PublishTimeout  int64 `json:"publish_timeout" yaml:"publish_timeout"`
+	MaxRetry             int   `json:"max_retry" yaml:"max_retry"`
+	MaxRetryBackOff      int   `json:"max_retry_back_off" yaml:"max_retry_back_off"`
+	FlushBytes           int   `json:"flush_bytes" yaml:"flush_bytes"`
+	MaxOpenRequests      int   `json:"max_open_requests" yaml:"max_open_requests"`
+	PublishTimeThreshold int64 `json:"publish_time_threshold" yaml:"publish_time_threshold"`
 }
 
 type KafkaConsumer struct {
