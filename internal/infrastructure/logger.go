@@ -18,10 +18,13 @@ import (
 )
 
 type LogWrapper struct {
-	logger  *zap.Logger
-	level   zapcore.Level
-	dbLevel logger.LogLevel
+	logger            *zap.Logger
+	level             zapcore.Level
+	requestSlowTime   int64
+	subscribeSlowTime int64
 }
+
+type Option func(p *LogWrapper)
 
 // RequestLogWrapper 请求日志
 func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc {
@@ -47,10 +50,14 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		}
 		if err != nil {
 			w.logger.Error(fmt.Sprintf("request failed: %s", err.Error()), logFields...)
+			return err
+		}
+		if duration > w.requestSlowTime {
+			w.logger.Warn("request too slow", logFields...)
 		} else {
 			w.logger.Info("request success", logFields...)
 		}
-		return err
+		return nil
 	}
 }
 
@@ -58,16 +65,10 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 	return func(next server.SubscriberFunc) server.SubscriberFunc {
 		return func(ctx context.Context, msg server.Message) error {
-			var err error
 			startTime := time.Now()
-			err = next(ctx, msg)
-			duration := time.Since(startTime).Milliseconds()
 			var strBuilder strings.Builder
-			if err != nil {
-				strBuilder.WriteString(fmt.Sprintf("failed to subscribe on %s: %s", msg.Topic(), err.Error()))
-			} else {
-				strBuilder.WriteString(fmt.Sprintf("topic: %s handle success", msg.Topic()))
-			}
+			err := next(ctx, msg)
+			duration := time.Since(startTime).Milliseconds()
 			publishedAt, err := strconv.ParseInt(metadatahelper.GetValueFromMetadata(ctx, "Timestamp"), 10, 64)
 			if err != nil {
 				micrologger.Error("failed to convert publushed at: ", err.Error())
@@ -87,11 +88,20 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 				zap.Int64("duration", duration),
 			}
 			if err != nil {
+				strBuilder.WriteString(fmt.Sprintf("failed to subscribe on %s: %s", msg.Topic(), err.Error()))
 				w.logger.Error(strBuilder.String(), logFields...)
+				return err
+			}
+
+			if duration > w.subscribeSlowTime {
+				strBuilder.WriteString(fmt.Sprintf("subscribe handler spend too much time greater than %dms on topic %s", w.subscribeSlowTime, msg.Topic()))
+				w.logger.Warn(strBuilder.String(), logFields...)
 			} else {
+				strBuilder.WriteString(fmt.Sprintf("topic %s subscribe handler success", msg.Topic()))
 				w.logger.Info(strBuilder.String(), logFields...)
 			}
-			return err
+
+			return nil
 		}
 	}
 }
@@ -141,10 +151,14 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	}
 
 	// Gorm 错误
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		// 其他错误使用 error 等级
-		logFields = append(logFields, zap.Error(err))
-		l.logger.Error("Database Error", logFields...)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			l.logger.Error(fmt.Sprintf("record not found: %s", err.Error()), logFields...)
+		} else {
+			// 其他错误使用 error 等级
+			logFields = append(logFields, zap.Error(err))
+			l.logger.Error("Database Error", logFields...)
+		}
 	}
 
 	// 慢查询日志
@@ -179,7 +193,32 @@ func NewGromLogger(zapLogger *zap.Logger, level int) logger.Interface {
 	}
 }
 
-// 创建日志包装器
-func NewLogWrapper(logger *zap.Logger) LogWrapper {
-	return LogWrapper{logger: logger, level: zapcore.InfoLevel}
+// NewLogWrapper 创建日志包装器
+func NewLogWrapper(opts ...Option) *LogWrapper {
+	w := &LogWrapper{}
+	for _, opt := range opts {
+		opt(w)
+	}
+	return w
+}
+
+// WithRequestSlowThreshold 慢请求时间
+func WithRequestSlowThreshold(timeout int64) Option {
+	return func(p *LogWrapper) {
+		p.requestSlowTime = timeout
+	}
+}
+
+// WithSubscribeSlowThreshold 订阅事件处理延迟时间
+func WithSubscribeSlowThreshold(timeout int64) Option {
+	return func(p *LogWrapper) {
+		p.subscribeSlowTime = timeout
+	}
+}
+
+// WithZapLogger 设置Logger
+func WithZapLogger(zapLogger *zap.Logger) Option {
+	return func(p *LogWrapper) {
+		p.logger = zapLogger
+	}
 }

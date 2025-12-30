@@ -21,12 +21,13 @@ type SysConfig struct {
 
 // 服务信息
 type ServiceInfo struct {
-	Name           string `json:"name" yaml:"name"`
-	Version        string `json:"version" yaml:"version"`
-	Listen         string `json:"listen" yaml:"listen"`
-	Qps            int    `json:"qps" yaml:"qps"`
-	Debug          bool   `json:"debug" yaml:"debug"`
-	HeathCheckAddr string `json:"heath_check_addr" yaml:"heath_check_addr"`
+	Name                 string `json:"name" yaml:"name"`
+	Version              string `json:"version" yaml:"version"`
+	Listen               string `json:"listen" yaml:"listen"`
+	Qps                  int    `json:"qps" yaml:"qps"`
+	Debug                bool   `json:"debug" yaml:"debug"`
+	HeathCheckAddr       string `json:"heath_check_addr" yaml:"heath_check_addr"`
+	RequestSlowThreshold int64  `json:"request_slow_threshold" yaml:"request_slow_threshold"`
 }
 
 // Consul配置信息
@@ -73,17 +74,17 @@ type Product struct {
 	Addr string `json:"addr" yaml:"addr"`
 }
 
-// 事务管理
+// Transaction 事务管理
 type Transaction struct {
 	Driver string `json:"driver" yaml:"driver"`
 	Host   string `json:"host" yaml:"host"`
 }
 
 type Broker struct {
-	Driver     string   `json:"driver" yaml:"driver"`
-	Kafka      *Kafka   `json:"kafka" yaml:"kafka"`
-	Publisher  []string `json:"publisher" yaml:"publisher"`
-	Subscriber []string `json:"subscriber" yaml:"subscriber"`
+	Driver                 string   `json:"driver" yaml:"driver"`
+	Kafka                  *Kafka   `json:"kafka" yaml:"kafka"`
+	Publisher              []string `json:"publisher" yaml:"publisher"`
+	SubscribeSlowThreshold int64    `json:"subscribe_slow_threshold" yaml:"subscribe_slow_threshold"`
 }
 
 type Kafka struct {
@@ -97,10 +98,11 @@ type Kafka struct {
 }
 
 type KafkaProducer struct {
-	MaxRetry        int `json:"max_retry" yaml:"max_retry"`
-	MaxRetryBackOff int `json:"max_retry_back_off" yaml:"max_retry_back_off"`
-	FlushBytes      int `json:"flush_bytes" yaml:"flush_bytes"`
-	MaxOpenRequests int `json:"max_open_requests" yaml:"max_open_requests"`
+	MaxRetry        int   `json:"max_retry" yaml:"max_retry"`
+	MaxRetryBackOff int   `json:"max_retry_back_off" yaml:"max_retry_back_off"`
+	FlushBytes      int   `json:"flush_bytes" yaml:"flush_bytes"`
+	MaxOpenRequests int   `json:"max_open_requests" yaml:"max_open_requests"`
+	PublishTimeout  int64 `json:"publish_timeout" yaml:"publish_timeout"`
 }
 
 type KafkaConsumer struct {
