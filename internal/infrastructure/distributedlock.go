@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// 分布式锁接口
+// DistributedLock 分布式锁接口
 type DistributedLock interface {
 	Lock(ctx context.Context) error
 	TryLock(ctx context.Context) error
@@ -24,22 +24,22 @@ type etcdLock struct {
 	mutex *concurrency.Mutex
 }
 
-// 获取键名
+// GetKey 获取键名
 func (l *etcdLock) GetKey(ctx context.Context) string {
 	return l.mutex.Key()
 }
 
-// 加锁
+// Lock 加锁
 func (l *etcdLock) Lock(ctx context.Context) error {
 	return l.mutex.Lock(ctx)
 }
 
-// 加锁（尝试获取锁）
+// TryLock 加锁（尝试获取锁）
 func (l *etcdLock) TryLock(ctx context.Context) error {
 	return l.mutex.TryLock(ctx)
 }
 
-// 解锁
+// UnLock 解锁
 func (l *etcdLock) UnLock(ctx context.Context) error {
 	timeoutCtx, ctxCancelFunc := context.WithTimeout(context.Background(), time.Second*3)
 	defer ctxCancelFunc()
@@ -49,7 +49,7 @@ func (l *etcdLock) UnLock(ctx context.Context) error {
 	return nil
 }
 
-// 分布式锁管理器
+// LockManager 分布式锁管理器
 type LockManager interface {
 	NewLock(ctx context.Context, key string, ttl int) (DistributedLock, error)
 	Close() error
@@ -84,7 +84,7 @@ func (elm *etcdLockManager) Close() error {
 	return elm.ecli.Close()
 }
 
-// 创建锁
+// NewLock 创建锁
 func (elm *etcdLockManager) NewLock(ctx context.Context, key string, ttl int) (DistributedLock, error) {
 	elm.mu.RLock()
 	defer elm.mu.RUnlock()
@@ -121,17 +121,17 @@ func (elm *etcdLockManager) getOrCreateSession(ttl int) (*concurrency.Session, e
 	return s, nil
 }
 
-// 创建分布式锁
+// NewEtcdLockManager 创建分布式锁
 func NewEtcdLockManager(conf *config.Etcd) (LockManager, error) {
 	client, err := clientv3.New(clientv3.Config{
-		Endpoints: conf.Hosts,
-		DialTimeout: 10 * time.Second,
-		Username:    conf.Username,
-		Password:    conf.Password,
-		DialKeepAliveTime: 10 * time.Second,
+		Endpoints:            conf.Hosts,
+		DialTimeout:          10 * time.Second,
+		Username:             conf.Username,
+		Password:             conf.Password,
+		DialKeepAliveTime:    10 * time.Second,
 		DialKeepAliveTimeout: 5 * time.Second,
-		MaxCallRecvMsgSize: 10 * 1024 * 1024,
-		MaxCallSendMsgSize: 10 * 1024 * 1024,
+		MaxCallRecvMsgSize:   10 * 1024 * 1024,
+		MaxCallSendMsgSize:   10 * 1024 * 1024,
 	})
 	if err != nil {
 		return nil, err
