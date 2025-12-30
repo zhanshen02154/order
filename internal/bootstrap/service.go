@@ -101,7 +101,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
 			wrapper.NewClientLogWrapper(
 				wrapper.WithLogger(zapLogger),
-				wrapper.WithPulishTimeThreshold(conf.Broker.Kafka.Producer.PublishTimeout),
+				wrapper.WithPulishTimeThreshold(conf.Broker.Kafka.Producer.PublishTimeThreshold),
 			),
 		),
 		micro.WrapSubscriber(
