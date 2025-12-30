@@ -36,12 +36,14 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		pprofSrv = infrastructure.NewPprofServer(":6060")
 	}
 
-	//tableInit.InitTable()
-
 	//common.PrometheusBoot(PrometheusPort)
 
 	// New Service
-	logWrapper := infrastructure.NewLogWrapper(zapLogger)
+	logWrapper := infrastructure.NewLogWrapper(
+		infrastructure.WithZapLogger(zapLogger),
+		infrastructure.WithRequestSlowThreshold(conf.Service.RequestSlowThreshold),
+		infrastructure.WithSubscribeSlowThreshold(conf.Broker.SubscribeSlowThreshold),
+	)
 	client := grpcclient.NewClient(
 		grpcclient.PoolMaxIdle(100),
 	)
@@ -95,9 +97,12 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			return nil
 		}),
 		micro.WrapClient(
-			wrapper.NewClientLogWrapper(zapLogger),
-			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
 			opentelemetry.NewClientWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
+			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
+			wrapper.NewClientLogWrapper(
+				wrapper.WithLogger(zapLogger),
+				wrapper.WithPulishTimeThreshold(conf.Broker.Kafka.Producer.PublishTimeThreshold),
+			),
 		),
 		micro.WrapSubscriber(
 			opentelemetry.NewSubscriberWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),

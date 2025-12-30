@@ -21,12 +21,13 @@ type SysConfig struct {
 
 // 服务信息
 type ServiceInfo struct {
-	Name           string `json:"name" yaml:"name"`
-	Version        string `json:"version" yaml:"version"`
-	Listen         string `json:"listen" yaml:"listen"`
-	Qps            int    `json:"qps" yaml:"qps"`
-	Debug          bool   `json:"debug" yaml:"debug"`
-	HeathCheckAddr string `json:"heath_check_addr" yaml:"heath_check_addr"`
+	Name                 string `json:"name" yaml:"name"`
+	Version              string `json:"version" yaml:"version"`
+	Listen               string `json:"listen" yaml:"listen"`
+	Qps                  int    `json:"qps" yaml:"qps"`
+	Debug                bool   `json:"debug" yaml:"debug"`
+	HeathCheckAddr       string `json:"heath_check_addr" yaml:"heath_check_addr"`
+	RequestSlowThreshold int64  `json:"request_slow_threshold" yaml:"request_slow_threshold"`
 }
 
 // Consul配置信息
@@ -73,38 +74,42 @@ type Product struct {
 	Addr string `json:"addr" yaml:"addr"`
 }
 
-// 事务管理
+// Transaction 事务管理
 type Transaction struct {
 	Driver string `json:"driver" yaml:"driver"`
 	Host   string `json:"host" yaml:"host"`
 }
 
 type Broker struct {
-	Driver     string   `json:"driver" yaml:"driver"`
-	Kafka      *Kafka   `json:"kafka" yaml:"kafka"`
-	Publisher  []string `json:"publisher" yaml:"publisher"`
-	Subscriber []string `json:"subscriber" yaml:"subscriber"`
+	Driver                 string   `json:"driver" yaml:"driver"`
+	Kafka                  *Kafka   `json:"kafka" yaml:"kafka"`
+	Publisher              []string `json:"publisher" yaml:"publisher"`
+	SubscribeSlowThreshold int64    `json:"subscribe_slow_threshold" yaml:"subscribe_slow_threshold"`
 }
 
 type Kafka struct {
-	Hosts        []string       `json:"hosts" yaml:"hosts"`
-	DialTimeout  int            `json:"dial_timeout" yaml:"dial_timeout"`
-	ReadTimeout  int            `json:"read_timeout" yaml:"read_timeout"`
-	WriteTimeout int            `json:"write_timeout" yaml:"write_timeout"`
-	Producer     *KafkaProducer `json:"producer" yaml:"producer"`
-	Consumer     *KafkaConsumer `json:"consumer" yaml:"consumer"`
+	Hosts             []string       `json:"hosts" yaml:"hosts"`
+	ChannelBufferSize int            `json:"channel_buffer_size" yaml:"channel_buffer_size"`
+	DialTimeout       int            `json:"dial_timeout" yaml:"dial_timeout"`
+	ReadTimeout       int            `json:"read_timeout" yaml:"read_timeout"`
+	WriteTimeout      int            `json:"write_timeout" yaml:"write_timeout"`
+	Producer          *KafkaProducer `json:"producer" yaml:"producer"`
+	Consumer          *KafkaConsumer `json:"consumer" yaml:"consumer"`
 }
 
 type KafkaProducer struct {
-	MaxRetry        int `json:"max_retry" yaml:"max_retry"`
-	MaxRetryBackOff int `json:"max_retry_back_off" yaml:"max_retry_back_off"`
-	FlushBytes      int `json:"flush_bytes" yaml:"flush_bytes"`
-	MaxOpenRequests int `json:"max_open_requests" yaml:"max_open_requests"`
+	MaxRetry             int   `json:"max_retry" yaml:"max_retry"`
+	MaxRetryBackOff      int   `json:"max_retry_back_off" yaml:"max_retry_back_off"`
+	FlushBytes           int   `json:"flush_bytes" yaml:"flush_bytes"`
+	MaxOpenRequests      int   `json:"max_open_requests" yaml:"max_open_requests"`
+	PublishTimeThreshold int64 `json:"publish_time_threshold" yaml:"publish_time_threshold"`
 }
 
 type KafkaConsumer struct {
 	Group            *KafkaConsumerGroup `json:"group" yaml:"group"`
 	AutoCommitOffset bool                `json:"auto_commit_offset" yaml:"auto_commit_offset"`
+	FetchMin         int32               `json:"fetch_min" yaml:"fetch_min"`
+	FetchMax         int32               `json:"fetch_max" yaml:"fetch_max"`
 }
 
 type KafkaConsumerGroup struct {
@@ -113,7 +118,7 @@ type KafkaConsumerGroup struct {
 
 type Tracer struct {
 	SampleRate float64 `json:"sample_rate" yaml:"sample_rate"`
-	Client struct {
+	Client     struct {
 		Insecure bool   `json:"insecure"`
 		Endpoint string `json:"endpoint" yaml:"endpoint"`
 		Timeout  int    `json:"timeout" yaml:"timeout"`

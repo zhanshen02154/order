@@ -13,9 +13,12 @@ import (
 // 日志记录
 type logWrapper struct {
 	client.Client
-	loggerFieldsPool sync.Pool
-	logger           *zap.Logger
+	loggerFieldsPool     sync.Pool
+	logger               *zap.Logger
+	publishTimeThreshold int64
 }
+
+type Option func(p *logWrapper)
 
 // Publish 发布事件
 func (w *logWrapper) Publish(ctx context.Context, msg client.Message, opts ...client.PublishOption) error {
@@ -44,6 +47,9 @@ func (w *logWrapper) Publish(ctx context.Context, msg client.Message, opts ...cl
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to publish event %s, error: %s", msg.Topic(), err.Error()), logFields...)
 	} else {
+		if duration > w.publishTimeThreshold {
+			w.logger.Warn(fmt.Sprintf("pulish event to %s slow", msg.Topic()), logFields...)
+		}
 		w.logger.Info(fmt.Sprintf("publish event %s success", msg.Topic()), logFields...)
 	}
 
@@ -51,14 +57,31 @@ func (w *logWrapper) Publish(ctx context.Context, msg client.Message, opts ...cl
 }
 
 // NewClientLogWrapper 新建客户端日志包装器
-func NewClientLogWrapper(zapLogger *zap.Logger) func(client.Client) client.Client {
+func NewClientLogWrapper(opts ...Option) func(client.Client) client.Client {
+	p := &logWrapper{
+		loggerFieldsPool: sync.Pool{New: func() interface{} {
+			return make([]zap.Field, 0)
+		}},
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
 	return func(c client.Client) client.Client {
-		return &logWrapper{
-			Client: c,
-			loggerFieldsPool: sync.Pool{New: func() interface{} {
-				return make([]zap.Field, 0)
-			}},
-			logger: zapLogger,
-		}
+		p.Client = c
+		return p
+	}
+}
+
+// WithLogger 设置Logger
+func WithLogger(logger *zap.Logger) Option {
+	return func(p *logWrapper) {
+		p.logger = logger
+	}
+}
+
+// WithPulishTimeThreshold 发布超时时间
+func WithPulishTimeThreshold(timeout int64) Option {
+	return func(p *logWrapper) {
+		p.publishTimeThreshold = timeout
 	}
 }
