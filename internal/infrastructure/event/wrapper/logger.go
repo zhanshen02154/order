@@ -17,7 +17,7 @@ type logWrapper struct {
 	logger           *zap.Logger
 }
 
-// 发布事件
+// Publish 发布事件
 func (w *logWrapper) Publish(ctx context.Context, msg client.Message, opts ...client.PublishOption) error {
 	logFields := w.loggerFieldsPool.Get().([]zap.Field)
 	defer func() {
@@ -50,7 +50,7 @@ func (w *logWrapper) Publish(ctx context.Context, msg client.Message, opts ...cl
 	return err
 }
 
-// 新建客户端日志包装器
+// NewClientLogWrapper 新建客户端日志包装器
 func NewClientLogWrapper(zapLogger *zap.Logger) func(client.Client) client.Client {
 	return func(c client.Client) client.Client {
 		return &logWrapper{

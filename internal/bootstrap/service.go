@@ -24,6 +24,7 @@ import (
 	"time"
 )
 
+// RunService 运行服务
 func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceContext, zapLogger *zap.Logger) error {
 	//注册中心
 	consulRegistry := infrastructure.ConsulRegister(conf.Consul)
@@ -43,9 +44,9 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	logWrapper := infrastructure.NewLogWrapper(zapLogger)
 	client := grpcclient.NewClient(
 		grpcclient.PoolMaxIdle(100),
-		)
+	)
 	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka)
-	dealLetterWrapper := wrapper.NewDeadLetterWrapper(broker)
+	deadLetterWrapper := wrapper.NewDeadLetterWrapper(broker)
 	service := micro.NewService(
 		micro.Server(grpc2.NewServer(
 			server.Name(conf.Service.Name),
@@ -59,16 +60,13 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		)),
 		micro.Client(client),
 
-		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
 		micro.WrapHandler(
 			ratelimit.NewHandlerWrapper(conf.Service.Qps),
 			opentelemetry.NewHandlerWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
 			logWrapper.RequestLogWrapper,
-			),
+		),
 		micro.Broker(broker),
-		//添加监控
-		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.AfterStart(func() error {
 			if pprofSrv != nil {
 				pprofSrv.Start()
@@ -100,9 +98,10 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			wrapper.NewClientLogWrapper(zapLogger),
 			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
 			opentelemetry.NewClientWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
-			),
+		),
 		micro.WrapSubscriber(
-			dealLetterWrapper.Wrapper(),
+			opentelemetry.NewSubscriberWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
+			deadLetterWrapper.Wrapper(),
 			logWrapper.SubscribeWrapper(),
 		),
 	)
