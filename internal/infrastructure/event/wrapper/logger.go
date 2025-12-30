@@ -46,14 +46,15 @@ func (w *logWrapper) Publish(ctx context.Context, msg client.Message, opts ...cl
 
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to publish event %s, error: %s", msg.Topic(), err.Error()), logFields...)
+		return err
+	}
+	if duration > w.publishTimeThreshold {
+		w.logger.Warn(fmt.Sprintf("pulish event to %s slow", msg.Topic()), logFields...)
 	} else {
-		if duration > w.publishTimeThreshold {
-			w.logger.Warn(fmt.Sprintf("pulish event to %s slow", msg.Topic()), logFields...)
-		}
 		w.logger.Info(fmt.Sprintf("publish event %s success", msg.Topic()), logFields...)
 	}
 
-	return err
+	return nil
 }
 
 // NewClientLogWrapper 新建客户端日志包装器
