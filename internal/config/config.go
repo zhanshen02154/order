@@ -87,12 +87,13 @@ type Broker struct {
 }
 
 type Kafka struct {
-	Hosts        []string       `json:"hosts" yaml:"hosts"`
-	DialTimeout  int            `json:"dial_timeout" yaml:"dial_timeout"`
-	ReadTimeout  int            `json:"read_timeout" yaml:"read_timeout"`
-	WriteTimeout int            `json:"write_timeout" yaml:"write_timeout"`
-	Producer     *KafkaProducer `json:"producer" yaml:"producer"`
-	Consumer     *KafkaConsumer `json:"consumer" yaml:"consumer"`
+	Hosts             []string       `json:"hosts" yaml:"hosts"`
+	ChannelBufferSize int            `json:"channel_buffer_size" yaml:"channel_buffer_size"`
+	DialTimeout       int            `json:"dial_timeout" yaml:"dial_timeout"`
+	ReadTimeout       int            `json:"read_timeout" yaml:"read_timeout"`
+	WriteTimeout      int            `json:"write_timeout" yaml:"write_timeout"`
+	Producer          *KafkaProducer `json:"producer" yaml:"producer"`
+	Consumer          *KafkaConsumer `json:"consumer" yaml:"consumer"`
 }
 
 type KafkaProducer struct {
@@ -105,6 +106,8 @@ type KafkaProducer struct {
 type KafkaConsumer struct {
 	Group            *KafkaConsumerGroup `json:"group" yaml:"group"`
 	AutoCommitOffset bool                `json:"auto_commit_offset" yaml:"auto_commit_offset"`
+	FetchMin         int32               `json:"fetch_min" yaml:"fetch_min"`
+	FetchMax         int32               `json:"fetch_max" yaml:"fetch_max"`
 }
 
 type KafkaConsumerGroup struct {
@@ -113,7 +116,7 @@ type KafkaConsumerGroup struct {
 
 type Tracer struct {
 	SampleRate float64 `json:"sample_rate" yaml:"sample_rate"`
-	Client struct {
+	Client     struct {
 		Insecure bool   `json:"insecure"`
 		Endpoint string `json:"endpoint" yaml:"endpoint"`
 		Timeout  int    `json:"timeout" yaml:"timeout"`
