@@ -114,6 +114,7 @@ type gormLogger struct {
 }
 
 func (l *gormLogger) LogMode(level logger.LogLevel) logger.Interface {
+	l.level = level
 	return l
 }
 
