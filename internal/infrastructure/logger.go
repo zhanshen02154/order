@@ -18,12 +18,12 @@ import (
 )
 
 type LogWrapper struct {
-	logger *zap.Logger
-	level zapcore.Level
+	logger  *zap.Logger
+	level   zapcore.Level
 	dbLevel logger.LogLevel
 }
 
-// 请求日志
+// RequestLogWrapper 请求日志
 func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc {
 	return func(ctx context.Context, req server.Request, rsp interface{}) error {
 		traceId := metadatahelper.GetTraceIdFromSpan(ctx)
@@ -47,14 +47,14 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		}
 		if err != nil {
 			w.logger.Error(fmt.Sprintf("request failed: %s", err.Error()), logFields...)
-		}else {
+		} else {
 			w.logger.Info("request success", logFields...)
 		}
 		return err
 	}
 }
 
-// 订阅事件记录日志
+// SubscribeWrapper 订阅事件记录日志
 func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 	return func(next server.SubscriberFunc) server.SubscriberFunc {
 		return func(ctx context.Context, msg server.Message) error {
@@ -65,7 +65,7 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			var strBuilder strings.Builder
 			if err != nil {
 				strBuilder.WriteString(fmt.Sprintf("failed to subscribe on %s: %s", msg.Topic(), err.Error()))
-			}else {
+			} else {
 				strBuilder.WriteString(fmt.Sprintf("topic: %s handle success", msg.Topic()))
 			}
 			publishedAt, err := strconv.ParseInt(metadatahelper.GetValueFromMetadata(ctx, "Timestamp"), 10, 64)
@@ -74,7 +74,7 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			}
 			logFields := []zap.Field{
 				zap.String("type", "subscribe"),
-				zap.String("trace_id", metadatahelper.GetValueFromMetadata(ctx, "Trace_id")),
+				zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
 				zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
 				zap.String("topic", msg.Topic()),
 				zap.String("source", metadatahelper.GetValueFromMetadata(ctx, "Source")),
@@ -88,7 +88,7 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			}
 			if err != nil {
 				w.logger.Error(strBuilder.String(), logFields...)
-			}else {
+			} else {
 				w.logger.Info(strBuilder.String(), logFields...)
 			}
 			return err
@@ -98,21 +98,21 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 
 // GORM Logger
 type gormLogger struct {
-	logger *zap.Logger
+	logger        *zap.Logger
 	slowThreshold int64
-	level logger.LogLevel
+	level         logger.LogLevel
 }
 
 func (l *gormLogger) LogMode(level logger.LogLevel) logger.Interface {
 	return l
 }
 
-// Info日志
+// Info Info日志
 func (l *gormLogger) Info(ctx context.Context, str string, args ...interface{}) {
 	l.logger.Sugar().Debugf(str, args...)
 }
 
-// Warn日志
+// Warn Warn日志
 func (l *gormLogger) Warn(ctx context.Context, str string, args ...interface{}) {
 	l.logger.Sugar().Warnf(str, args...)
 }
@@ -122,7 +122,7 @@ func (l *gormLogger) Error(ctx context.Context, str string, args ...interface{})
 	l.logger.Sugar().Errorf(str, args...)
 }
 
-// Trace日志
+// Trace Trace日志
 func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
 	if l.level < logger.Info {
 		return
@@ -132,10 +132,9 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	// 获取 SQL 请求和返回条数
 	sql, rows := fc()
 	// 通用字段
-	traceId := metadatahelper.GetValueFromMetadata(ctx, "Trace_id")
 	logFields := []zap.Field{
 		zap.String("type", "sql"),
-		zap.String("trace_id", traceId),
+		zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
 		zap.String("sql", sql),
 		zap.Int64("time", elapsed),
 		zap.Int64("rows", rows),
@@ -159,7 +158,7 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	}
 }
 
-// 创建GORM Logger
+// NewGromLogger 创建GORM Logger
 func NewGromLogger(zapLogger *zap.Logger, level int) logger.Interface {
 	gormLevel := logger.Info
 	switch level {
@@ -174,9 +173,9 @@ func NewGromLogger(zapLogger *zap.Logger, level int) logger.Interface {
 		break
 	}
 	return &gormLogger{
-		logger: zapLogger,
+		logger:        zapLogger,
 		slowThreshold: 200,
-		level: gormLevel,
+		level:         gormLevel,
 	}
 }
 
