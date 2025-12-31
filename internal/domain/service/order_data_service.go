@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
+	metadatahelper "github.com/zhanshen02154/order/pkg/metadata"
 	"github.com/zhanshen02154/order/proto/order"
 	"time"
 )
@@ -15,6 +16,8 @@ type IOrderDataService interface {
 	UpdateOrderPayStatus(ctx context.Context, orderId int64, status int32) error
 	FindByIdAndStatus(ctx context.Context, orderId int64, status int32) (*model.Order, error)
 	ConfirmPayment(ctx context.Context, orderInfo *model.Order) error
+	// FailedPayment 支付失败
+	FailedPayment(ctx context.Context, orderInfo *model.Order) error
 }
 
 // 创建
@@ -59,4 +62,13 @@ func (u *OrderDataService) ConfirmPayment(ctx context.Context, orderInfo *model.
 		Valid: true,
 	}
 	return u.orderRepository.ConfirmPayment(ctx, orderInfo)
+}
+
+// FailedPayment 支付失败
+func (u *OrderDataService) FailedPayment(ctx context.Context, orderInfo *model.Order) error {
+	payErrMsg := metadatahelper.GetValueFromMetadata(ctx, "error")
+	orderInfo.PayStatus = 5
+	orderInfo.ShipStatus = 1
+	orderInfo.PayError = payErrMsg
+	return u.orderRepository.UpdatePayOrder(ctx, orderInfo)
 }

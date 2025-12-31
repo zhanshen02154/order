@@ -31,14 +31,20 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig.Consumer.Fetch.Min = conf.Consumer.FetchMin
 	kafkaConfig.Consumer.Fetch.Max = conf.Consumer.FetchMax
 	kafkaConfig.Consumer.Group.Session.Timeout = time.Second * time.Duration(conf.Consumer.Group.SessionTimeout)
+	// 确保 AsyncProducer 返回 successes channel
+	kafkaConfig.Producer.Return.Successes = true
+	kafkaConfig.Producer.Return.Errors = true
 	return kafkaConfig
 }
 
 // NewKafkaBroker 创建Broker
-func NewKafkaBroker(conf *config.Kafka) broker.Broker {
-	return kafka.NewBroker(
+func NewKafkaBroker(conf *config.Kafka, opts ...broker.Option) broker.Broker {
+	// 将额外传入的 broker.Option 直接透传给 kafka.NewBroker，便于注入 AsyncProducer channels
+	options := []broker.Option{
 		broker.Addrs(conf.Hosts...),
 		kafka.BrokerConfig(loadKafkaConfig(conf)),
 		broker.Logger(logger.DefaultLogger),
-	)
+	}
+	options = append(options, opts...)
+	return kafka.NewBroker(options...)
 }
