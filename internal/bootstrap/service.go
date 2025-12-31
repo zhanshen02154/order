@@ -50,8 +50,9 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		grpcclient.PoolMaxIdle(100),
 	)
 	// 为 AsyncProducer 准备 channels，并把它们传给 kafka 插件
-	successChan := make(chan *sarama.ProducerMessage)
-	errorChan := make(chan *sarama.ProducerError)
+	// 使用与 Kafka 配置中相同的缓冲，减少短时写阻塞风险
+	successChan := make(chan *sarama.ProducerMessage, conf.Broker.Kafka.ChannelBufferSize)
+	errorChan := make(chan *sarama.ProducerError, conf.Broker.Kafka.ChannelBufferSize)
 	var eb event.Listener
 	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka, kafkabroker.AsyncProducer(errorChan, successChan))
 	deadLetterWrapper := wrapper.NewDeadLetterWrapper(broker)
@@ -91,10 +92,6 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			logger.Info("收到关闭信号，正在停止健康检查服务器...")
-			err := probeServer.Shutdown(shutdownCtx)
-			if err != nil {
-				return err
-			}
 			if conf.Service.Debug {
 				if err := pprofSrv.Close(shutdownCtx); err != nil {
 					logger.Error("pprof服务器关闭错误: ", err)
@@ -103,9 +100,12 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 
 			// 关闭所有系统组件
 			serviceContext.Close()
-
-			eb.Close()
-
+			return nil
+		}),
+		micro.AfterStop(func() error {
+			if eb != nil {
+				eb.Close()
+			}
 			return nil
 		}),
 		micro.WrapClient(
