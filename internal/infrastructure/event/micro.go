@@ -130,7 +130,7 @@ func (l *microListener) handleSuccess(propagator propagation.TextMapPropagator, 
 			}
 			l.handleCallback(success, nil, propagator, tracer)
 		case <-l.quitChan:
-			l.logger.Info("Successes handler received stop signal.")
+			logger.Info("Successes handler received stop signal.")
 			return
 		}
 	}
@@ -149,7 +149,7 @@ func (l *microListener) handleErrors(propagator propagation.TextMapPropagator, t
 				l.handleCallback(errMsg.Msg, errMsg.Err, propagator, tracer)
 			}
 		case <-l.quitChan:
-			l.logger.Info("Errors handler received stop signal.")
+			logger.Info("Errors handler received stop signal.")
 			return
 		}
 	}
