@@ -71,7 +71,6 @@ func main() {
 		logger.Error("error to load service context: ", err)
 		return
 	}
-	defer serviceContext.Close()
 
 	if err := bootstrap.RunService(&confInfo, serviceContext, componentLogger); err != nil {
 		logger.Error("failed to start service: ", err)
