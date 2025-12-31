@@ -40,6 +40,8 @@ type microListener struct {
 	wg                   sync.WaitGroup
 	publishTimeThreshold int64
 	quitChan             chan struct{}
+	// started 用于防止重复 Start
+	started bool
 }
 
 type Option func(listener *microListener)
@@ -92,21 +94,37 @@ func (l *microListener) UnRegister(topic string) bool {
 // Close 关闭
 func (l *microListener) Close() {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.eventPublisher == nil {
+	// 如果已经关闭或未初始化，直接返回
+	if l.eventPublisher == nil && l.quitChan == nil {
+		l.mu.Unlock()
 		return
 	}
-	for k := range l.eventPublisher {
-		delete(l.eventPublisher, k)
-		logger.Info("event: ", k, " unregistered")
+	if l.eventPublisher != nil {
+		for k := range l.eventPublisher {
+			delete(l.eventPublisher, k)
+			logger.Info("event: ", k, " unregistered")
+		}
+		l.eventPublisher = nil
 	}
-	l.eventPublisher = nil
-	close(l.quitChan)
+	if l.quitChan != nil {
+		close(l.quitChan)
+		l.quitChan = nil
+	}
+	l.mu.Unlock()
+
 	l.wg.Wait()
 }
 
 // Start 启动
 func (l *microListener) Start() {
+	l.mu.Lock()
+	if l.started {
+		l.mu.Unlock()
+		return
+	}
+	l.started = true
+	l.mu.Unlock()
+
 	l.watchKafkaPipeline()
 }
 
@@ -157,9 +175,18 @@ func (l *microListener) handleErrors(propagator propagation.TextMapPropagator, t
 
 // 处理回调信息
 func (l *microListener) handleCallback(sg *sarama.ProducerMessage, err error, propagator propagation.TextMapPropagator, tracer trace.Tracer) {
-	msg := sg.Metadata.(*broker.Message)
-	if _, ok := msg.Header[traceparentKey]; ok {
-		msg.Header[strings.ToLower(traceparentKey)] = msg.Header[traceparentKey]
+	if sg == nil || sg.Metadata == nil {
+		return
+	}
+	msg, ok := sg.Metadata.(*broker.Message)
+	if !ok || msg == nil {
+		return
+	}
+	if msg.Header == nil {
+		msg.Header = make(map[string]string)
+	}
+	if v, ok := msg.Header[traceparentKey]; ok {
+		msg.Header[strings.ToLower(traceparentKey)] = v
 	}
 
 	// 从header提取数据
@@ -167,13 +194,21 @@ func (l *microListener) handleCallback(sg *sarama.ProducerMessage, err error, pr
 	spanName := "Kafka Async Callback"
 	_, span := tracer.Start(parentCtx, spanName, trace.WithSpanKind(trace.SpanKindProducer))
 	defer span.End()
+
 	if err != nil {
-		// 不是死信队列则投递到死信队列里
-		if !strings.HasSuffix(sg.Topic, deadletterSuffix) {
-			msg.Header["Micro-Topic"] = sg.Topic + deadletterSuffix
-			msg.Header["error"] = err.Error()
-			if err1 := l.b.Publish(msg.Header["Micro-Topic"], msg); err1 != nil {
-				logger.Errorf("failed to publish dead letter topic %s on id %s, error: %s", msg.Header["Micro-Topic"], msg.Header["Event_id"], err1.Error())
+		// 不是死信队列则投递到死信队列里（复制 header 以避免并发修改）
+		if !strings.HasSuffix(sg.Topic, deadletterSuffix) && l.b != nil {
+			dlMsg := &broker.Message{
+				Header: make(map[string]string, len(msg.Header)+2),
+				Body:   msg.Body,
+			}
+			for k, v := range msg.Header {
+				dlMsg.Header[k] = v
+			}
+			dlMsg.Header["Micro-Topic"] = sg.Topic + deadletterSuffix
+			dlMsg.Header["error"] = err.Error()
+			if perr := l.b.Publish(dlMsg.Header["Micro-Topic"], dlMsg); perr != nil {
+				logger.Errorf("failed to publish dead letter topic %s on id %s, error: %s", dlMsg.Header["Micro-Topic"], dlMsg.Header["Event_id"], perr.Error())
 			}
 		}
 		span.SetStatus(codes.Error, err.Error())
