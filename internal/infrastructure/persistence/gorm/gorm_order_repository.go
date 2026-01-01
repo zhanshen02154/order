@@ -56,7 +56,7 @@ func (orderRepo *OrderRepository) UpdatePayOrder(ctx context.Context, orderInfo 
 // ConfirmPaymentOrder 订单确认支付
 func (orderRepo *OrderRepository) ConfirmPaymentOrder(ctx context.Context, orderInfo *model.Order) error {
 	db := GetDBFromContext(ctx, orderRepo.db)
-	res := db.Debug().Model(orderInfo).Select("pay_status", "pay_time").Where("order_code = ?", orderInfo.OrderCode).Updates(model.Order{
+	res := db.Model(orderInfo).Select("pay_status", "pay_time").Where("order_code = ?", orderInfo.OrderCode).Updates(model.Order{
 		PayStatus: orderInfo.PayStatus,
 		PayTime:   orderInfo.PayTime,
 	})
