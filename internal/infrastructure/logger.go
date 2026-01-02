@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	metadatahelper "github.com/zhanshen02154/order/pkg/metadata"
 	micrologger "go-micro.dev/v4/logger"
 	"go-micro.dev/v4/metadata"
@@ -18,18 +19,18 @@ import (
 )
 
 type LogWrapper struct {
-	logger            *zap.Logger
-	level             zapcore.Level
-	requestSlowTime   int64
-	subscribeSlowTime int64
+	logger *zap.Logger
+	level zapcore.Level
+	dbLevel logger.LogLevel
 }
 
-type Option func(p *LogWrapper)
-
-// RequestLogWrapper 请求日志
+// 请求日志
 func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc {
 	return func(ctx context.Context, req server.Request, rsp interface{}) error {
-		traceId := metadatahelper.GetTraceIdFromSpan(ctx)
+		traceId := metadatahelper.GetValueFromMetadata(ctx, "Trace_id")
+		if traceId == "" {
+			traceId = uuid.New().String()
+		}
 		traceCtx := metadata.Set(ctx, "Trace_id", traceId)
 		startTime := time.Now()
 		err := fn(traceCtx, req, rsp)
@@ -50,32 +51,34 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		}
 		if err != nil {
 			w.logger.Error(fmt.Sprintf("request failed: %s", err.Error()), logFields...)
-			return err
-		}
-		if duration > w.requestSlowTime {
-			w.logger.Warn("request too slow", logFields...)
-		} else {
+		}else {
 			w.logger.Info("request success", logFields...)
 		}
-		return nil
+		return err
 	}
 }
 
-// SubscribeWrapper 订阅事件记录日志
+// 订阅事件记录日志
 func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 	return func(next server.SubscriberFunc) server.SubscriberFunc {
 		return func(ctx context.Context, msg server.Message) error {
+			var err error
 			startTime := time.Now()
-			var strBuilder strings.Builder
-			err := next(ctx, msg)
+			err = next(ctx, msg)
 			duration := time.Since(startTime).Milliseconds()
+			var strBuilder strings.Builder
+			if err != nil {
+				strBuilder.WriteString(fmt.Sprintf("failed to subscribe on %s: %s", msg.Topic(), err.Error()))
+			}else {
+				strBuilder.WriteString(fmt.Sprintf("topic: %s handle success", msg.Topic()))
+			}
 			publishedAt, err := strconv.ParseInt(metadatahelper.GetValueFromMetadata(ctx, "Timestamp"), 10, 64)
 			if err != nil {
 				micrologger.Error("failed to convert publushed at: ", err.Error())
 			}
 			logFields := []zap.Field{
 				zap.String("type", "subscribe"),
-				zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
+				zap.String("trace_id", metadatahelper.GetValueFromMetadata(ctx, "Trace_id")),
 				zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
 				zap.String("topic", msg.Topic()),
 				zap.String("source", metadatahelper.GetValueFromMetadata(ctx, "Source")),
@@ -88,163 +91,100 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 				zap.Int64("duration", duration),
 			}
 			if err != nil {
-				strBuilder.WriteString(fmt.Sprintf("failed to subscribe on %s: %s", msg.Topic(), err.Error()))
 				w.logger.Error(strBuilder.String(), logFields...)
-				return err
-			}
-
-			if duration > w.subscribeSlowTime {
-				strBuilder.WriteString(fmt.Sprintf("subscribe handler spend too much time greater than %dms on topic %s", w.subscribeSlowTime, msg.Topic()))
-				w.logger.Warn(strBuilder.String(), logFields...)
-			} else {
-				strBuilder.WriteString(fmt.Sprintf("topic %s subscribe handler success", msg.Topic()))
+			}else {
 				w.logger.Info(strBuilder.String(), logFields...)
 			}
-
-			return nil
+			return err
 		}
 	}
 }
 
 // GORM Logger
 type gormLogger struct {
-	logger        *zap.Logger
+	logger *zap.Logger
 	slowThreshold int64
-	level         logger.LogLevel
+	level logger.LogLevel
 }
 
 func (l *gormLogger) LogMode(level logger.LogLevel) logger.Interface {
-	l.level = level
 	return l
 }
 
-// Info Info日志
+// Info日志
 func (l *gormLogger) Info(ctx context.Context, str string, args ...interface{}) {
-	if l.level < logger.Info {
-		return
-	}
-	l.logger.Sugar().Infof(str, args...)
+	l.logger.Sugar().Debugf(str, args...)
 }
 
-// Warn Warn日志
+// Warn日志
 func (l *gormLogger) Warn(ctx context.Context, str string, args ...interface{}) {
-	if l.level < logger.Warn {
-		return
-	}
 	l.logger.Sugar().Warnf(str, args...)
 }
 
 // Error日志
 func (l *gormLogger) Error(ctx context.Context, str string, args ...interface{}) {
-	if l.level < logger.Error {
-		return
-	}
 	l.logger.Sugar().Errorf(str, args...)
 }
 
-// Trace Trace日志
+// Trace日志
 func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+	if l.level < logger.Info {
+		return
+	}
 	// 获取运行时间
 	elapsed := time.Since(begin).Milliseconds()
+	// 获取 SQL 请求和返回条数
+	sql, rows := fc()
+	// 通用字段
+	traceId := metadatahelper.GetValueFromMetadata(ctx, "Trace_id")
+	logFields := []zap.Field{
+		zap.String("type", "sql"),
+		zap.String("trace_id", traceId),
+		zap.String("sql", sql),
+		zap.Int64("time", elapsed),
+		zap.Int64("rows", rows),
+	}
 
 	// Gorm 错误
-	switch {
-	case err != nil && l.level >= logger.Error && !errors.Is(err, gorm.ErrRecordNotFound):
-		sql, rows := fc()
-		l.logger.Warn(fmt.Sprintf("record not found: %s", err.Error()),
-			zap.String("type", "sql"),
-			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
-			zap.String("sql", sql),
-			zap.Int64("time", elapsed),
-			zap.Int64("rows", rows),
-		)
-	case l.slowThreshold != 0 && elapsed > l.slowThreshold && l.level >= logger.Warn:
-		sql, rows := fc()
-		l.logger.Warn("database query slow",
-			zap.String("type", "sql"),
-			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
-			zap.String("sql", sql),
-			zap.Int64("time", elapsed),
-			zap.Int64("rows", rows),
-		)
-	case l.level >= logger.Info:
-		sql, rows := fc()
-		l.logger.Info("database query info",
-			zap.String("type", "sql"),
-			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
-			zap.String("sql", sql),
-			zap.Int64("time", elapsed),
-			zap.Int64("rows", rows),
-		)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		// 其他错误使用 error 等级
+		logFields = append(logFields, zap.Error(err))
+		l.logger.Error("Database Error", logFields...)
+	}
+
+	// 慢查询日志
+	if l.slowThreshold != 0 && elapsed > l.slowThreshold {
+		l.logger.Warn("Database Slow Log", logFields...)
+	}
+
+	// 记录所有 SQL 请求
+	if l.level == logger.Info {
+		l.logger.Info("Database Query", logFields...)
 	}
 }
 
-// NewGromLogger 创建GORM Logger
-func NewGromLogger(zapLogger *zap.Logger, level zapcore.Level) logger.Interface {
+// 创建GORM Logger
+func NewGromLogger(zapLogger *zap.Logger, level int) logger.Interface {
 	gormLevel := logger.Info
 	switch level {
-	case zap.WarnLevel:
+	case 1:
+		gormLevel = logger.Info
+		break
+	case 2:
 		gormLevel = logger.Warn
 		break
-	case zap.ErrorLevel:
+	case 3:
 		gormLevel = logger.Error
 		break
 	}
 	return &gormLogger{
-		logger:        zapLogger,
+		logger: zapLogger,
 		slowThreshold: 200,
-		level:         gormLevel,
+		level: gormLevel,
 	}
 }
 
-// NewLogWrapper 创建日志包装器
-func NewLogWrapper(opts ...Option) *LogWrapper {
-	w := &LogWrapper{}
-	for _, opt := range opts {
-		opt(w)
-	}
-	return w
-}
-
-// WithRequestSlowThreshold 慢请求时间
-func WithRequestSlowThreshold(timeout int64) Option {
-	return func(p *LogWrapper) {
-		p.requestSlowTime = timeout
-	}
-}
-
-// WithSubscribeSlowThreshold 订阅事件处理延迟时间
-func WithSubscribeSlowThreshold(timeout int64) Option {
-	return func(p *LogWrapper) {
-		p.subscribeSlowTime = timeout
-	}
-}
-
-// WithZapLogger 设置Logger
-func WithZapLogger(zapLogger *zap.Logger) Option {
-	return func(p *LogWrapper) {
-		p.logger = zapLogger
-	}
-}
-
-// FindZapLogLevel zap日志级别
-func FindZapLogLevel(level string) zapcore.Level {
-	zapLevel := zap.DebugLevel
-	switch level {
-	case "info":
-		zapLevel = zap.InfoLevel
-		break
-	case "warn":
-		zapLevel = zap.WarnLevel
-		break
-	case "error":
-		zapLevel = zap.ErrorLevel
-		break
-	case "fatal":
-		zapLevel = zap.FatalLevel
-	case "panic":
-		zapLevel = zap.DPanicLevel
-		break
-	}
-	return zapLevel
+// 创建日志包装器
+func NewLogWrapper(logger *zap.Logger) LogWrapper {
+	return LogWrapper{logger: logger, level: zapcore.InfoLevel}
 }
