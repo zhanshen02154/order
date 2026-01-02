@@ -13,7 +13,6 @@ import (
 func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig := sarama.NewConfig()
 	kafkaConfig.Version = sarama.V3_0_0_0
-	kafkaConfig.ChannelBufferSize = conf.ChannelBufferSize
 	kafkaConfig.Net.DialTimeout = time.Duration(conf.DialTimeout) * time.Second
 	kafkaConfig.Net.ReadTimeout = time.Duration(conf.ReadTimeout) * time.Second
 	kafkaConfig.Net.WriteTimeout = time.Duration(conf.WriteTimeout) * time.Second
@@ -27,24 +26,18 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig.Producer.Idempotent = false
 	kafkaConfig.Metadata.AllowAutoTopicCreation = false
 	kafkaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
-	kafkaConfig.Net.MaxOpenRequests = conf.Producer.MaxOpenRequests
-	kafkaConfig.Consumer.Fetch.Min = conf.Consumer.FetchMin
-	kafkaConfig.Consumer.Fetch.Max = conf.Consumer.FetchMax
+	kafkaConfig.Net.MaxOpenRequests = 10
+	kafkaConfig.Consumer.Fetch.Min = 256000
+	kafkaConfig.Consumer.Fetch.Max = 1048576
 	kafkaConfig.Consumer.Group.Session.Timeout = time.Second * time.Duration(conf.Consumer.Group.SessionTimeout)
-	// 确保 AsyncProducer 返回 successes channel
-	kafkaConfig.Producer.Return.Successes = true
-	kafkaConfig.Producer.Return.Errors = true
 	return kafkaConfig
 }
 
-// NewKafkaBroker 创建Broker
-func NewKafkaBroker(conf *config.Kafka, opts ...broker.Option) broker.Broker {
-	// 将额外传入的 broker.Option 直接透传给 kafka.NewBroker，便于注入 AsyncProducer channels
-	options := []broker.Option{
+// 创建Broker
+func NewKafkaBroker(conf *config.Kafka) broker.Broker {
+	return kafka.NewBroker(
 		broker.Addrs(conf.Hosts...),
 		kafka.BrokerConfig(loadKafkaConfig(conf)),
 		broker.Logger(logger.DefaultLogger),
-	}
-	options = append(options, opts...)
-	return kafka.NewBroker(options...)
+	)
 }
