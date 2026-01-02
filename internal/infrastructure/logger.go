@@ -120,16 +120,25 @@ func (l *gormLogger) LogMode(level logger.LogLevel) logger.Interface {
 
 // Info Info日志
 func (l *gormLogger) Info(ctx context.Context, str string, args ...interface{}) {
-	l.logger.Sugar().Debugf(str, args...)
+	if l.level < logger.Info {
+		return
+	}
+	l.logger.Sugar().Infof(str, args...)
 }
 
 // Warn Warn日志
 func (l *gormLogger) Warn(ctx context.Context, str string, args ...interface{}) {
+	if l.level < logger.Warn {
+		return
+	}
 	l.logger.Sugar().Warnf(str, args...)
 }
 
 // Error日志
 func (l *gormLogger) Error(ctx context.Context, str string, args ...interface{}) {
+	if l.level < logger.Error {
+		return
+	}
 	l.logger.Sugar().Errorf(str, args...)
 }
 
@@ -137,56 +146,53 @@ func (l *gormLogger) Error(ctx context.Context, str string, args ...interface{})
 func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
 	// 获取运行时间
 	elapsed := time.Since(begin).Milliseconds()
-	// 获取 SQL 请求和返回条数
-	sql, rows := fc()
-	// 通用字段
-	logFields := []zap.Field{
-		zap.String("type", "sql"),
-		zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
-		zap.String("sql", sql),
-		zap.Int64("time", elapsed),
-		zap.Int64("rows", rows),
-	}
 
 	// Gorm 错误
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			l.logger.Warn(fmt.Sprintf("record not found: %s", err.Error()), logFields...)
-		} else {
-			// 其他错误使用 error 等级
-			logFields = append(logFields, zap.Error(err))
-			l.logger.Error("Database Error", logFields...)
-		}
-	}
-
-	// 慢查询日志
-	if l.slowThreshold != 0 && elapsed > l.slowThreshold {
-		l.logger.Warn("Database Slow Log", logFields...)
-	}
-
-	// 记录所有 SQL 请求
-	if l.level == logger.Info {
-		l.logger.Info("Database Query", logFields...)
+	switch {
+	case err != nil && l.level >= logger.Error && !errors.Is(err, gorm.ErrRecordNotFound):
+		sql, rows := fc()
+		l.logger.Warn(fmt.Sprintf("record not found: %s", err.Error()),
+			zap.String("type", "sql"),
+			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
+			zap.String("sql", sql),
+			zap.Int64("time", elapsed),
+			zap.Int64("rows", rows),
+		)
+	case l.slowThreshold != 0 && elapsed > l.slowThreshold && l.level >= logger.Warn:
+		sql, rows := fc()
+		l.logger.Warn("database query slow",
+			zap.String("type", "sql"),
+			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
+			zap.String("sql", sql),
+			zap.Int64("time", elapsed),
+			zap.Int64("rows", rows),
+		)
+	case l.level >= logger.Info:
+		sql, rows := fc()
+		l.logger.Info("database query info",
+			zap.String("type", "sql"),
+			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
+			zap.String("sql", sql),
+			zap.Int64("time", elapsed),
+			zap.Int64("rows", rows),
+		)
 	}
 }
 
 // NewGromLogger 创建GORM Logger
-func NewGromLogger(zapLogger *zap.Logger, level int) logger.Interface {
+func NewGromLogger(zapLogger *zap.Logger, level zapcore.Level) logger.Interface {
 	gormLevel := logger.Info
 	switch level {
-	case 1:
-		gormLevel = logger.Info
-		break
-	case 2:
+	case zap.WarnLevel:
 		gormLevel = logger.Warn
 		break
-	case 3:
+	case zap.ErrorLevel:
 		gormLevel = logger.Error
 		break
 	}
 	return &gormLogger{
 		logger:        zapLogger,
-		slowThreshold: 10,
+		slowThreshold: 200,
 		level:         gormLevel,
 	}
 }
@@ -219,4 +225,26 @@ func WithZapLogger(zapLogger *zap.Logger) Option {
 	return func(p *LogWrapper) {
 		p.logger = zapLogger
 	}
+}
+
+// FindZapLogLevel zap日志级别
+func FindZapLogLevel(level string) zapcore.Level {
+	zapLevel := zap.DebugLevel
+	switch level {
+	case "info":
+		zapLevel = zap.InfoLevel
+		break
+	case "warn":
+		zapLevel = zap.WarnLevel
+		break
+	case "error":
+		zapLevel = zap.ErrorLevel
+		break
+	case "fatal":
+		zapLevel = zap.FatalLevel
+	case "panic":
+		zapLevel = zap.DPanicLevel
+		break
+	}
+	return zapLevel
 }

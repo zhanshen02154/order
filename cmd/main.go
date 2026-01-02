@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	microzap "github.com/go-micro/plugins/v4/logger/zap"
 	"github.com/zhanshen02154/order/internal/bootstrap"
 	"github.com/zhanshen02154/order/internal/config"
@@ -15,57 +16,58 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"log"
-	"os"
 	"time"
 )
 
 func main() {
-	zapLogger := zap.New(zapcore.NewCore(getEncoder(), zapcore.AddSync(os.Stdout), zap.InfoLevel),
-		zap.WithCaller(true),
-		zap.AddCallerSkip(1),
+	zapLogger, err := zap.NewProduction(
+		zap.AddCallerSkip(2),
 	)
-	defer zapLogger.Sync()
-	microLogger, err := microzap.NewLogger(microzap.WithLogger(zapLogger))
 	if err != nil {
-		log.Println(err)
-		return
+		log.Panic("failed to start zap logger: ", err.Error())
 	}
-	logger.DefaultLogger = microLogger
-	loggerMetadataMap := make(map[string]interface{})
+	defer zapLogger.Sync()
 
 	consulSource, err := config.GetConfig()
 	if err != nil {
-		logger.Error(err)
+		zapLogger.Error(fmt.Sprintf("failed to load config: %s", err.Error()))
 		return
 	}
 
 	var confInfo config.SysConfig
 	if err := consulSource.Get("order").Scan(&confInfo); err != nil {
-		logger.Error(err)
+		zapLogger.Error(fmt.Sprintf("failed convert config to struct: %s", err.Error()))
 		return
 	}
-
-	componentLogger := zapLogger.With(
-		zap.String("service", confInfo.Service.Name),
-		zap.String("version", confInfo.Service.Version),
+	// 检查配置
+	if err := confInfo.CheckConfig(); err != nil {
+		zapLogger.Error(fmt.Sprintf("failed to check config: %s", err.Error()))
+		return
+	}
+	serverLogLevel := infrastructure.FindZapLogLevel(confInfo.Service.LogLevel)
+	componentLogger := zapLogger.WithOptions(
+		zap.IncreaseLevel(serverLogLevel),
+		zap.Fields(zap.String("service", confInfo.Service.Name)),
+		zap.Fields(zap.String("version", confInfo.Service.Version)),
 	)
-	loggerMetadataMap["service"] = confInfo.Service.Name
-	loggerMetadataMap["version"] = confInfo.Service.Version
+	loggerMetadataMap := make(map[string]interface{})
 	loggerMetadataMap["type"] = "core"
-	logger.DefaultLogger = logger.DefaultLogger.Fields(loggerMetadataMap)
-
+	microLogger, err := microzap.NewLogger(
+		microzap.WithLogger(componentLogger),
+		logger.WithFields(loggerMetadataMap),
+	)
 	if err != nil {
-		logger.Error("failed to update logger: ", err)
+		zapLogger.Error(fmt.Sprintf("failed to load go micro logger: %s", err.Error()))
 		return
 	}
+	logger.DefaultLogger = microLogger
 
 	// 链路追踪
 	traceShutdown := initTracer(confInfo.Service.Name, confInfo.Service.Version, confInfo.Tracer)
 	defer traceShutdown()
 
-	gormLogger := infrastructure.NewGromLogger(componentLogger, confInfo.Database.LogLevel)
+	gormLogger := infrastructure.NewGromLogger(componentLogger, serverLogLevel)
 	serviceContext, err := infrastructure.NewServiceContext(&confInfo, gormLogger)
 	if err != nil {
 		logger.Error("error to load service context: ", err)
@@ -73,27 +75,8 @@ func main() {
 	}
 
 	if err := bootstrap.RunService(&confInfo, serviceContext, componentLogger); err != nil {
-		logger.Error("failed to start service: ", err)
+		logger.Error("failed to start service: ", err.Error())
 	}
-}
-
-// 获取日志编码器
-func getEncoder() zapcore.Encoder {
-	return zapcore.NewJSONEncoder(
-		zapcore.EncoderConfig{
-			MessageKey:     "message",
-			LevelKey:       "level",
-			TimeKey:        "timestamp",
-			NameKey:        "logger",
-			CallerKey:      "caller",
-			FunctionKey:    zapcore.OmitKey,
-			StacktraceKey:  "stacktrace",
-			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.LowercaseLevelEncoder,
-			EncodeTime:     zapcore.EpochTimeEncoder,
-			EncodeDuration: zapcore.MillisDurationEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
-		})
 }
 
 // 加载OpenTelemetry链路追踪
@@ -119,7 +102,6 @@ func initTracer(serviceName string, version string, conf *config.Tracer) func() 
 		),
 		resource.WithFromEnv(),
 		resource.WithProcess(),
-		resource.WithHost(),
 	)
 	if err != nil {
 		logger.Error("failed to create tracer resource: ", err.Error())
