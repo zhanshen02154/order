@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	orderevent "github.com/zhanshen02154/order/internal/domain/event/order"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/service"
@@ -12,6 +11,7 @@ import (
 	"go-micro.dev/v4/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strconv"
 )
 
 type IOrderApplicationService interface {
@@ -45,9 +45,10 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 	return appService.orderDataService.FindOrderByID(ctx, id)
 }
 
-// 支付回调
+// PayNotify 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
-	lock, err := appService.serviceContext.LockManager.NewLock(ctx, fmt.Sprintf("orderpaynotify-%s", req.OutTradeNo), 25)
+	lockKey := "paynotify-" + req.OutTradeNo
+	lock, err := appService.serviceContext.LockManager.NewLock(ctx, lockKey, 15)
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 					ProductSizeId: item.ProductSizeId,
 				})
 			}
-			err = appService.eb.Publish(txCtx, "OnPaymentSuccess", onPaymentSuccessEvent, fmt.Sprintf("%d", orderInfo.Id))
+			err = appService.eb.Publish(txCtx, "OnPaymentSuccess", onPaymentSuccessEvent, strconv.FormatInt(orderInfo.Id, 10))
 			if err != nil {
 				return err
 			}
@@ -102,15 +103,15 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, orderId int64) error {
 	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
 	if err != nil {
-		return status.Errorf(codes.Internal, "order_id %d find error: ", orderId, err)
+		return status.Error(codes.Internal, "order find error: "+err.Error())
 	}
 	if orderInfo == nil {
-		return status.Errorf(codes.Aborted, "order_id %d not found", orderId, err)
+		return status.Error(codes.Aborted, "order not found"+err.Error())
 	}
 	return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
 		err := appService.orderDataService.FailedPayment(ctx, orderInfo)
 		if err != nil {
-			return status.Errorf(codes.Aborted, "failed to update status: %d", orderId)
+			return status.Error(codes.Aborted, "failed to update status: "+strconv.FormatInt(orderId, 10))
 		}
 		return nil
 	})
@@ -120,16 +121,13 @@ func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, 
 func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, orderId int64) error {
 	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
 	if err != nil {
-		return status.Errorf(codes.Internal, "order_id %d find error: ", orderId, err)
-	}
-	if orderInfo == nil {
-		return status.Errorf(codes.Aborted, "order_id %d not found", orderId, err)
+		return status.Error(codes.Internal, "order_id "+strconv.FormatInt(orderId, 10)+"find error: "+err.Error())
 	}
 
 	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
 		err := appService.orderDataService.ConfirmPayment(txCtx, orderInfo)
 		if err != nil {
-			return status.Errorf(codes.Aborted, "failed to confirm payment on %d, error: %s", orderInfo.Id, err.Error())
+			return status.Error(codes.Aborted, "failed to confirm payment"+err.Error())
 		}
 		return nil
 	})

@@ -2,7 +2,6 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"github.com/go-micro/plugins/v4/config/source/consul"
 	"github.com/zhanshen02154/order/pkg/env"
 	"go-micro.dev/v4/config"
@@ -47,6 +46,7 @@ type ConsulInfo struct {
 
 // MySQL配置信息
 type MySqlConfig struct {
+	Dsn             string `json:"dsn" yaml:"dsn"`
 	Host            string `json:"host" yaml:"host"`
 	Port            int64  `json:"port" yaml:"port"`
 	User            string `json:"user" yaml:"user"`
@@ -135,7 +135,7 @@ type Tracer struct {
 
 // CheckConfig 检查配置
 func (c *SysConfig) CheckConfig() error {
-	logLevels := [4]string{"info", "warn", "error", "fatal"}
+	logLevels := [3]string{"info", "warn", "error"}
 	if c.Service == nil {
 		return errors.New("service info is nil")
 	}
@@ -165,7 +165,7 @@ func GetConfig() (config.Config, error) {
 	consulPrefix := env.GetEnv("CONSUL_PREFIX", "/micro/")
 	consulSource := consul.NewSource(
 		// Set configuration address
-		consul.WithAddress(fmt.Sprintf("%s:%s", consulHost, consulPort)),
+		consul.WithAddress(consulHost+":"+consulPort),
 		consul.WithPrefix(consulPrefix),
 		consul.StripPrefix(true),
 	)

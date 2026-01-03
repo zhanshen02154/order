@@ -3,23 +3,18 @@ package infrastructure
 import (
 	"context"
 	"errors"
-	"fmt"
 	metadatahelper "github.com/zhanshen02154/order/pkg/metadata"
-	micrologger "go-micro.dev/v4/logger"
-	"go-micro.dev/v4/metadata"
 	"go-micro.dev/v4/server"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"strconv"
 	"strings"
 	"time"
 )
 
 type LogWrapper struct {
 	logger            *zap.Logger
-	level             zapcore.Level
 	requestSlowTime   int64
 	subscribeSlowTime int64
 }
@@ -29,35 +24,35 @@ type Option func(p *LogWrapper)
 // RequestLogWrapper 请求日志
 func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc {
 	return func(ctx context.Context, req server.Request, rsp interface{}) error {
-		traceId := metadatahelper.GetTraceIdFromSpan(ctx)
-		traceCtx := metadata.Set(ctx, "Trace_id", traceId)
 		startTime := time.Now()
-		err := fn(traceCtx, req, rsp)
+		err := fn(ctx, req, rsp)
 		duration := time.Since(startTime).Milliseconds()
-		userAgent := metadatahelper.GetValueFromMetadata(ctx, "user-agent")
-		remote := metadatahelper.GetValueFromMetadata(ctx, "Remote")
-		acceptEncoding := metadatahelper.GetValueFromMetadata(ctx, "accept-encoding")
-		logFields := []zap.Field{
+		var baseFields []zap.Field
+		baseFields = append(baseFields,
 			zap.String("type", "request"),
-			zap.String("trace_id", traceId),
+			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
 			zap.String("method", req.Method()),
 			zap.String("endpoint", req.Endpoint()),
 			zap.String("content_type", req.ContentType()),
-			zap.String("user_agent", userAgent),
-			zap.String("accept_encoding", acceptEncoding),
-			zap.String("remote", remote),
+			zap.String("user_agent", metadatahelper.GetValueFromMetadata(ctx, "user-agent")),
+			zap.String("accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "accept-encoding")),
+			zap.String("remote", metadatahelper.GetValueFromMetadata(ctx, "Remote")),
 			zap.Int64("duration", duration),
+		)
+		var strBuilder strings.Builder
+		switch {
+		case err != nil:
+			strBuilder.WriteString("Request failed ")
+			strBuilder.WriteString(err.Error())
+			w.logger.Error(strBuilder.String(), baseFields...)
+		case duration > w.requestSlowTime && err == nil && duration > 0:
+			strBuilder.WriteString("Slow request")
+			w.logger.Warn(strBuilder.String(), baseFields...)
+		default:
+			strBuilder.WriteString("Request processed")
+			w.logger.Info(strBuilder.String(), baseFields...)
 		}
-		if err != nil {
-			w.logger.Error(fmt.Sprintf("request failed: %s", err.Error()), logFields...)
-			return err
-		}
-		if duration > w.requestSlowTime {
-			w.logger.Warn("request too slow", logFields...)
-		} else {
-			w.logger.Info("request success", logFields...)
-		}
-		return nil
+		return err
 	}
 }
 
@@ -66,42 +61,34 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 	return func(next server.SubscriberFunc) server.SubscriberFunc {
 		return func(ctx context.Context, msg server.Message) error {
 			startTime := time.Now()
-			var strBuilder strings.Builder
 			err := next(ctx, msg)
 			duration := time.Since(startTime).Milliseconds()
-			publishedAt, err := strconv.ParseInt(metadatahelper.GetValueFromMetadata(ctx, "Timestamp"), 10, 64)
-			if err != nil {
-				micrologger.Error("failed to convert publushed at: ", err.Error())
-			}
-			logFields := []zap.Field{
-				zap.String("type", "subscribe"),
+			var baseFields []zap.Field
+			baseFields = append(baseFields, zap.String("type", "subscribe"),
 				zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
 				zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
 				zap.String("topic", msg.Topic()),
 				zap.String("source", metadatahelper.GetValueFromMetadata(ctx, "Source")),
 				zap.String("schema_version", metadatahelper.GetValueFromMetadata(ctx, "Schema_version")),
-				zap.Int64("published_at", publishedAt),
 				zap.String("grpc_accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Grpc-Accept-Encoding")),
 				zap.String("remote", metadatahelper.GetValueFromMetadata(ctx, "Remote")),
 				zap.String("accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Accept-Encoding")),
 				zap.String("key", metadatahelper.GetValueFromMetadata(ctx, "Pkey")),
-				zap.Int64("duration", duration),
+				zap.Int64("duration", duration))
+			var strBuilder strings.Builder
+			switch {
+			case err != nil:
+				strBuilder.WriteString("Event subscribe handler failed ")
+				strBuilder.WriteString(err.Error())
+				w.logger.Error(strBuilder.String(), baseFields...)
+			case duration > w.requestSlowTime && err == nil && duration > 0:
+				strBuilder.WriteString("Event subscribe slow")
+				w.logger.Warn(strBuilder.String(), baseFields...)
+			default:
+				strBuilder.WriteString("Event subscribe handler processed")
+				w.logger.Info(strBuilder.String(), baseFields...)
 			}
-			if err != nil {
-				strBuilder.WriteString(fmt.Sprintf("failed to subscribe on %s: %s", msg.Topic(), err.Error()))
-				w.logger.Error(strBuilder.String(), logFields...)
-				return err
-			}
-
-			if duration > w.subscribeSlowTime {
-				strBuilder.WriteString(fmt.Sprintf("subscribe handler spend too much time greater than %dms on topic %s", w.subscribeSlowTime, msg.Topic()))
-				w.logger.Warn(strBuilder.String(), logFields...)
-			} else {
-				strBuilder.WriteString(fmt.Sprintf("topic %s subscribe handler success", msg.Topic()))
-				w.logger.Info(strBuilder.String(), logFields...)
-			}
-
-			return nil
+			return err
 		}
 	}
 }
@@ -151,7 +138,7 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 	switch {
 	case err != nil && l.level >= logger.Error && !errors.Is(err, gorm.ErrRecordNotFound):
 		sql, rows := fc()
-		l.logger.Warn(fmt.Sprintf("record not found: %s", err.Error()),
+		l.logger.Error("database query error: "+err.Error(),
 			zap.String("type", "sql"),
 			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
 			zap.String("sql", sql),
@@ -247,4 +234,23 @@ func FindZapLogLevel(level string) zapcore.Level {
 		break
 	}
 	return zapLevel
+}
+
+// FindZapAtomicLogLevel 获取原子日志级别
+func FindZapAtomicLogLevel(level string) zap.AtomicLevel {
+	var atomicLevel zap.AtomicLevel
+	// 将字符串形式的日志级别（如从consul获取的"debug"）转换为zap.AtomicLevel
+	switch level {
+	case "debug":
+		atomicLevel = zap.NewAtomicLevelAt(zap.DebugLevel)
+	case "info":
+		atomicLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
+	case "warn":
+		atomicLevel = zap.NewAtomicLevelAt(zap.WarnLevel)
+	case "error":
+		atomicLevel = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	default:
+		atomicLevel = zap.NewAtomicLevelAt(zap.InfoLevel) // 默认级别
+	}
+	return atomicLevel
 }

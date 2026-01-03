@@ -210,6 +210,7 @@ func (l *microListener) handleCallback(sg *sarama.ProducerMessage, err error, pr
 			if perr := l.b.Publish(dlMsg.Header["Micro-Topic"], dlMsg); perr != nil {
 				logger.Errorf("failed to publish dead letter topic %s on id %s, error: %s", dlMsg.Header["Micro-Topic"], dlMsg.Header["Event_id"], perr.Error())
 			}
+			dlMsg = nil
 		}
 		span.SetStatus(codes.Error, err.Error())
 		span.RecordError(err)
@@ -222,11 +223,11 @@ func (l *microListener) handleCallback(sg *sarama.ProducerMessage, err error, pr
 	}
 
 	l.logPublish(msg, err)
+	msg = nil
 }
 
 // 记录发布成功日志
 func (l *microListener) logPublish(msg *broker.Message, msgErr error) {
-	var logFields []zap.Field
 	if msg == nil {
 		return
 	}
@@ -235,7 +236,6 @@ func (l *microListener) logPublish(msg *broker.Message, msgErr error) {
 	if _, ok := msg.Header["Timestamp"]; ok {
 		startTimeInt, err := strconv.ParseInt(msg.Header["Timestamp"], 10, 64)
 		if err != nil {
-			logger.Errorf("failed to convert publush event timestamp: %s in topic: %s", err.Error())
 			return
 		}
 		startTime := time.UnixMilli(startTimeInt)
@@ -243,10 +243,8 @@ func (l *microListener) logPublish(msg *broker.Message, msgErr error) {
 	} else {
 		duration = -1
 	}
-	pKey := ""
-	if _, ok := msg.Header[partitionKey]; ok {
-		pKey = msg.Header[partitionKey]
-	}
+
+	var logFields []zap.Field
 	logFields = append(logFields,
 		zap.String("type", "publish"),
 		zap.String("trace_id", msg.Header["Trace_id"]),
@@ -257,18 +255,26 @@ func (l *microListener) logPublish(msg *broker.Message, msgErr error) {
 		zap.Int64("published_at", currentTime.Unix()),
 		zap.String("remote", msg.Header["Remote"]),
 		zap.String("accept_encoding", msg.Header["Accept-Encoding"]),
-		zap.String("key", pKey),
 		zap.Int64("duration", duration),
 	)
-	if msgErr != nil {
-		l.logger.Error(fmt.Sprintf("failed to publish event to topic %s on event_id %s. error: %s", msg.Header["Micro-Topic"], msg.Header["Event_id"], msgErr.Error()), logFields...)
-		return
+	if pKey, ok := msg.Header[partitionKey]; ok {
+		logFields = append(logFields, zap.String("key", pKey))
+	} else {
+		logFields = append(logFields, zap.String("key", ""))
 	}
-	if duration > l.publishTimeThreshold {
-		l.logger.Warn(fmt.Sprintf("publish event %s too slow, greater than %d", msg.Header["Micro-Topic"], l.publishTimeThreshold), logFields...)
-		return
+	var strBuilder strings.Builder
+	switch {
+	case msgErr != nil:
+		strBuilder.WriteString("Publish event failed: ")
+		strBuilder.WriteString(msgErr.Error())
+		l.logger.Error(strBuilder.String(), logFields...)
+	case msgErr == nil && duration > l.publishTimeThreshold && duration > 0:
+		strBuilder.WriteString("Publish event slow")
+		l.logger.Error(strBuilder.String(), logFields...)
+	default:
+		strBuilder.WriteString("Publish event success")
+		l.logger.Info(strBuilder.String(), logFields...)
 	}
-	l.logger.Info(fmt.Sprintf("published to topic %s success", msg.Header["Micro-Topic"]), logFields...)
 }
 
 // NewListener 新建侦听器
