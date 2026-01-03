@@ -67,10 +67,13 @@ func main() {
 			EncodeCaller:   zapcore.ShortCallerEncoder, // 记录调用者信息[3](@ref)
 		},
 	}
-	finalLogger, err := loggerConfig.Build(zap.Fields(
-		zap.String("service", confInfo.Service.Name),
-		zap.String("version", confInfo.Service.Version),
-	))
+	finalLogger, err := loggerConfig.Build(
+		zap.Fields(
+			zap.String("service", confInfo.Service.Name),
+			zap.String("version", confInfo.Service.Version),
+		),
+		zap.AddCallerSkip(1),
+	)
 	if err != nil {
 		zapLogger.Error("Failed to build final logger", zap.Error(err))
 		return
