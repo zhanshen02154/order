@@ -1,11 +1,12 @@
 package config
 
 import (
-	"fmt"
+	"errors"
 	"github.com/go-micro/plugins/v4/config/source/consul"
 	"github.com/zhanshen02154/order/pkg/env"
 	"go-micro.dev/v4/config"
 	"go-micro.dev/v4/logger"
+	"strings"
 )
 
 type SysConfig struct {
@@ -28,6 +29,7 @@ type ServiceInfo struct {
 	Debug                bool   `json:"debug" yaml:"debug"`
 	HeathCheckAddr       string `json:"heath_check_addr" yaml:"heath_check_addr"`
 	RequestSlowThreshold int64  `json:"request_slow_threshold" yaml:"request_slow_threshold"`
+	LogLevel             string `json:"log_level" yaml:"log_level"`
 }
 
 // Consul配置信息
@@ -44,6 +46,7 @@ type ConsulInfo struct {
 
 // MySQL配置信息
 type MySqlConfig struct {
+	Dsn             string `json:"dsn" yaml:"dsn"`
 	Host            string `json:"host" yaml:"host"`
 	Port            int64  `json:"port" yaml:"port"`
 	User            string `json:"user" yaml:"user"`
@@ -54,7 +57,6 @@ type MySqlConfig struct {
 	MaxOpenConns    int    `json:"max_open_conns" yaml:"max_open_conns"`
 	MaxIdleConns    int    `json:"max_idle_conns" yaml:"max_idle_conns"`
 	ConnMaxLifeTime uint   `json:"conn_max_life_time" yaml:"conn_max_life_time"`
-	LogLevel        int    `json:"log_level" yaml:"log_level"`
 }
 
 type Etcd struct {
@@ -131,23 +133,39 @@ type Tracer struct {
 	} `json:"client" yaml:"client"`
 }
 
-// 检查配置
-func (c *SysConfig) checkConfig() bool {
+// CheckConfig 检查配置
+func (c *SysConfig) CheckConfig() error {
+	logLevels := [3]string{"info", "warn", "error"}
 	if c.Service == nil {
-		return false
+		return errors.New("service info is nil")
 	}
-	return true
+	c.Service.LogLevel = strings.ToLower(c.Service.LogLevel)
+	invalidLogLevel := false
+	for _, item := range logLevels {
+		if item == c.Service.LogLevel {
+			invalidLogLevel = true
+			break
+		}
+	}
+	if !invalidLogLevel {
+		c.Service.LogLevel = "info"
+	}
+	if c.Consul.RegistryAddrs == nil || len(c.Consul.RegistryAddrs) == 0 {
+		return errors.New("consul registry addresses cannot be empty")
+	}
+
+	return nil
 }
 
 // GetConfig 从consul获取配置
 func GetConfig() (config.Config, error) {
 	// 从consul获取配置
-	consulHost := env.GetEnv("CONSUL_HOST", "192.168.81.128")
+	consulHost := env.GetEnv("CONSUL_HOST", "127.0.0.1")
 	consulPort := env.GetEnv("CONSUL_PORT", "8500")
 	consulPrefix := env.GetEnv("CONSUL_PREFIX", "/micro/")
 	consulSource := consul.NewSource(
 		// Set configuration address
-		consul.WithAddress(fmt.Sprintf("%s:%s", consulHost, consulPort)),
+		consul.WithAddress(consulHost+":"+consulPort),
 		consul.WithPrefix(consulPrefix),
 		consul.StripPrefix(true),
 	)

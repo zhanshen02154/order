@@ -15,9 +15,7 @@ type GormTransactionManager struct {
 type txKey struct{}
 
 func (gtm *GormTransactionManager) Execute(ctx context.Context, fn func(txCtx context.Context) error) error {
-	// 使用 NewDB session 为每次事务创建独立会话，降低 statement 缓存/复用时的互斥争用
-	session := gtm.db.Session(&gorm.Session{NewDB: true})
-	return session.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return gtm.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txCtx := context.WithValue(ctx, txKey{}, tx)
 		return fn(txCtx)
 	})
@@ -35,7 +33,7 @@ func GetDBFromContext(ctx context.Context, defaultDB *gorm.DB) *gorm.DB {
 	return defaultDB.WithContext(ctx) // 返回默认的非事务实例
 }
 
-// 子事务屏障
+// ExecuteWithBarrier 子事务屏障
 func (gtm *GormTransactionManager) ExecuteWithBarrier(ctx context.Context, fn func(txCtx context.Context) error) error {
 	barrier, err := dtmgrpc.BarrierFromGrpc(ctx)
 	if err != nil {
