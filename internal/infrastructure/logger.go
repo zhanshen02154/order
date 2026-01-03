@@ -45,7 +45,7 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		strBuilder := w.striBuilderPool.Get().(*strings.Builder)
 		switch {
 		case err != nil:
-			strBuilder.WriteString("Request failed")
+			strBuilder.WriteString("Request failed: ")
 			strBuilder.WriteString(err.Error())
 			w.logger.Error(strBuilder.String(), baseFields...)
 		case duration > w.requestSlowTime && err == nil && duration > 0:
