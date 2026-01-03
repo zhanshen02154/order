@@ -72,7 +72,7 @@ func main() {
 			zap.String("service", confInfo.Service.Name),
 			zap.String("version", confInfo.Service.Version),
 		),
-		zap.AddCallerSkip(2),
+		zap.AddCallerSkip(1),
 	)
 	if err != nil {
 		zapLogger.Error("Failed to build final logger", zap.Error(err))
