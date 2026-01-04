@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Shopify/sarama"
+	metadata2 "github.com/zhanshen02154/order/pkg/metadata"
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/broker"
 	"go-micro.dev/v4/client"
@@ -224,12 +225,12 @@ func (l *microListener) handleCallback(sg *sarama.ProducerMessage, err error, pr
 		)
 	}
 
-	l.logPublish(msg, err)
+	l.logPublish(parentCtx, msg, err)
 	msg = nil
 }
 
 // 记录发布成功日志
-func (l *microListener) logPublish(msg *broker.Message, msgErr error) {
+func (l *microListener) logPublish(ctx context.Context, msg *broker.Message, msgErr error) {
 	if msg == nil {
 		return
 	}
@@ -249,7 +250,7 @@ func (l *microListener) logPublish(msg *broker.Message, msgErr error) {
 	logFields := l.logFields.Get().([]zap.Field)
 	logFields = append(logFields,
 		zap.String("type", "publish"),
-		zap.String("trace_id", msg.Header["Trace_id"]),
+		zap.String("trace_id", metadata2.GetTraceIdFromSpan(ctx)),
 		zap.String("topic", msg.Header["Micro-Topic"]),
 		zap.String("event_id", msg.Header["Event_id"]),
 		zap.String("source", msg.Header["Source"]),
