@@ -43,7 +43,6 @@ type microListener struct {
 	quitChan             chan struct{}
 	// started 用于防止重复 Start
 	started    bool
-	logFields  sync.Pool
 	strBuilder sync.Pool
 }
 
@@ -247,7 +246,7 @@ func (l *microListener) logPublish(ctx context.Context, msg *broker.Message, msg
 		duration = -1
 	}
 
-	logFields := l.logFields.Get().([]zap.Field)
+	logFields := make([]zap.Field, 0, 12)
 	logFields = append(logFields,
 		zap.String("type", "publish"),
 		zap.String("trace_id", metadata2.GetTraceIdFromSpan(ctx)),
@@ -280,8 +279,6 @@ func (l *microListener) logPublish(ctx context.Context, msg *broker.Message, msg
 	}
 	strBuilder.Reset()
 	l.strBuilder.Put(strBuilder)
-	logFields = logFields[:0]
-	l.logFields.Put(logFields)
 }
 
 // NewListener 新建侦听器
@@ -291,9 +288,6 @@ func NewListener(opts ...Option) Listener {
 		eventPublisher: make(map[string]micro.Event),
 		wg:             sync.WaitGroup{},
 		quitChan:       make(chan struct{}),
-		logFields: sync.Pool{New: func() interface{} {
-			return make([]zap.Field, 0, 12)
-		}},
 		strBuilder: sync.Pool{New: func() interface{} {
 			return &strings.Builder{}
 		}},
