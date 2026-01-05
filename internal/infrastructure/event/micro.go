@@ -272,7 +272,7 @@ func (l *microListener) logPublish(ctx context.Context, msg *broker.Message, msg
 		l.logger.Error(strBuilder.String(), logFields...)
 	case msgErr == nil && duration > l.publishTimeThreshold && duration > 0:
 		strBuilder.WriteString("Publish event slow")
-		l.logger.Error(strBuilder.String(), logFields...)
+		l.logger.Warn(strBuilder.String(), logFields...)
 	default:
 		strBuilder.WriteString("Publish event success")
 		l.logger.Info(strBuilder.String(), logFields...)
