@@ -9,8 +9,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"strings"
-	"sync"
 	"time"
 )
 
@@ -18,7 +16,6 @@ type LogWrapper struct {
 	logger            *zap.Logger
 	requestSlowTime   int64
 	subscribeSlowTime int64
-	striBuilderPool   sync.Pool
 }
 
 type Option func(p *LogWrapper)
@@ -41,21 +38,14 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 			zap.String("remote", metadatahelper.GetValueFromMetadata(ctx, "Remote")),
 			zap.Int64("duration", duration),
 		)
-		strBuilder := w.striBuilderPool.Get().(*strings.Builder)
 		switch {
 		case err != nil:
-			strBuilder.WriteString("Request failed: ")
-			strBuilder.WriteString(err.Error())
-			w.logger.Error(strBuilder.String(), baseFields...)
+			w.logger.Error("Request failed: "+err.Error(), baseFields...)
 		case duration > w.requestSlowTime && err == nil && duration > 0:
-			strBuilder.WriteString("Slow request")
-			w.logger.Warn(strBuilder.String(), baseFields...)
+			w.logger.Warn("Slow request", baseFields...)
 		default:
-			strBuilder.WriteString("Request processed")
-			w.logger.Info(strBuilder.String(), baseFields...)
+			w.logger.Info("Request processed", baseFields...)
 		}
-		strBuilder.Reset()
-		w.striBuilderPool.Put(strBuilder)
 		return err
 	}
 }
@@ -79,21 +69,14 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 				zap.String("accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Accept-Encoding")),
 				zap.String("key", metadatahelper.GetValueFromMetadata(ctx, "Pkey")),
 				zap.Int64("duration", duration))
-			strBuilder := w.striBuilderPool.Get().(*strings.Builder)
 			switch {
 			case err != nil:
-				strBuilder.WriteString("Event subscribe handler failed ")
-				strBuilder.WriteString(err.Error())
-				w.logger.Error(strBuilder.String(), baseFields...)
+				w.logger.Error("Event subscribe handler failed: "+err.Error(), baseFields...)
 			case duration > w.requestSlowTime && err == nil && duration > 0:
-				strBuilder.WriteString("Event subscribe slow")
-				w.logger.Warn(strBuilder.String(), baseFields...)
+				w.logger.Warn("Event subscribe slow", baseFields...)
 			default:
-				strBuilder.WriteString("Event subscribe handler processed")
-				w.logger.Info(strBuilder.String(), baseFields...)
+				w.logger.Info("Event subscribe handler processed", baseFields...)
 			}
-			strBuilder.Reset()
-			w.striBuilderPool.Put(strBuilder)
 			return err
 		}
 	}
@@ -192,11 +175,7 @@ func NewGromLogger(zapLogger *zap.Logger, level zapcore.Level) logger.Interface 
 
 // NewLogWrapper 创建日志包装器
 func NewLogWrapper(opts ...Option) *LogWrapper {
-	w := LogWrapper{
-		striBuilderPool: sync.Pool{New: func() interface{} {
-			return &strings.Builder{}
-		}},
-	}
+	w := LogWrapper{}
 	for _, opt := range opts {
 		opt(&w)
 	}
