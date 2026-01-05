@@ -18,7 +18,6 @@ type LogWrapper struct {
 	logger            *zap.Logger
 	requestSlowTime   int64
 	subscribeSlowTime int64
-	baseFieldsPool    sync.Pool
 	striBuilderPool   sync.Pool
 }
 
@@ -30,7 +29,7 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		startTime := time.Now()
 		err := fn(ctx, req, rsp)
 		duration := time.Since(startTime).Milliseconds()
-		baseFields := w.baseFieldsPool.Get().([]zap.Field)
+		baseFields := make([]zap.Field, 0, 11)
 		baseFields = append(baseFields,
 			zap.String("type", "request"),
 			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
@@ -57,8 +56,6 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		}
 		strBuilder.Reset()
 		w.striBuilderPool.Put(strBuilder)
-		baseFields = baseFields[:0]
-		w.baseFieldsPool.Put(baseFields)
 		return err
 	}
 }
@@ -70,7 +67,7 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			startTime := time.Now()
 			err := next(ctx, msg)
 			duration := time.Since(startTime).Milliseconds()
-			baseFields := w.baseFieldsPool.Get().([]zap.Field)
+			baseFields := make([]zap.Field, 0, 11)
 			baseFields = append(baseFields, zap.String("type", "subscribe"),
 				zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
 				zap.String("event_id", metadatahelper.GetValueFromMetadata(ctx, "Event_id")),
@@ -97,8 +94,6 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			}
 			strBuilder.Reset()
 			w.striBuilderPool.Put(strBuilder)
-			baseFields = baseFields[:0]
-			w.baseFieldsPool.Put(baseFields)
 			return err
 		}
 	}
@@ -198,9 +193,6 @@ func NewGromLogger(zapLogger *zap.Logger, level zapcore.Level) logger.Interface 
 // NewLogWrapper 创建日志包装器
 func NewLogWrapper(opts ...Option) *LogWrapper {
 	w := LogWrapper{
-		baseFieldsPool: sync.Pool{New: func() interface{} {
-			return make([]zap.Field, 0, 12)
-		}},
 		striBuilderPool: sync.Pool{New: func() interface{} {
 			return &strings.Builder{}
 		}},
