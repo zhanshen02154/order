@@ -2,13 +2,10 @@ package bootstrap
 
 import (
 	"context"
-	"github.com/Shopify/sarama"
-	kafkabroker "github.com/go-micro/plugins/v4/broker/kafka"
 	grpcclient "github.com/go-micro/plugins/v4/client/grpc"
 	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
 	"github.com/go-micro/plugins/v4/transport/grpc"
 	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
-	"github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry"
 	appservice "github.com/zhanshen02154/order/internal/application/service"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
@@ -21,12 +18,10 @@ import (
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/server"
-	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"time"
 )
 
-// RunService 运行服务
 func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceContext, zapLogger *zap.Logger) error {
 	//注册中心
 	consulRegistry := infrastructure.ConsulRegister(conf.Consul)
@@ -38,24 +33,17 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		pprofSrv = infrastructure.NewPprofServer(":6060")
 	}
 
+	//tableInit.InitTable()
+
 	//common.PrometheusBoot(PrometheusPort)
 
 	// New Service
-	logWrapper := infrastructure.NewLogWrapper(
-		infrastructure.WithZapLogger(zapLogger),
-		infrastructure.WithRequestSlowThreshold(conf.Service.RequestSlowThreshold),
-		infrastructure.WithSubscribeSlowThreshold(conf.Broker.SubscribeSlowThreshold),
-	)
+	logWrapper := infrastructure.NewLogWrapper(zapLogger)
 	client := grpcclient.NewClient(
 		grpcclient.PoolMaxIdle(100),
-	)
-	// 为 AsyncProducer 准备 channels，并把它们传给 kafka 插件
-	// 使用与 Kafka 配置中相同的缓冲，减少短时写阻塞风险
-	successChan := make(chan *sarama.ProducerMessage, conf.Broker.Kafka.ChannelBufferSize)
-	errorChan := make(chan *sarama.ProducerError, conf.Broker.Kafka.ChannelBufferSize)
-	var eb event.Listener
-	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka, kafkabroker.AsyncProducer(errorChan, successChan))
-	deadLetterWrapper := wrapper.NewDeadLetterWrapper(broker)
+		)
+	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka)
+	dealLetterWrapper := wrapper.NewDeadLetterWrapper(broker)
 	service := micro.NewService(
 		micro.Server(grpc2.NewServer(
 			server.Name(conf.Service.Name),
@@ -69,13 +57,15 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		)),
 		micro.Client(client),
 
+		//micro.WrapHandler(opentracing.NewHandlerWrapper(opetracing2.GlobalTracer())),
 		//添加限流
 		micro.WrapHandler(
-			ratelimit.NewHandlerWrapper(conf.Service.Qps),
-			opentelemetry.NewHandlerWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
 			logWrapper.RequestLogWrapper,
-		),
+			ratelimit.NewHandlerWrapper(conf.Service.Qps),
+			),
 		micro.Broker(broker),
+		//添加监控
+		//micro.WrapHandler(prometheus.NewHandlerWrapper()),
 		micro.AfterStart(func() error {
 			if pprofSrv != nil {
 				pprofSrv.Start()
@@ -92,42 +82,28 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			logger.Info("收到关闭信号，正在停止健康检查服务器...")
+			err := probeServer.Shutdown(shutdownCtx)
+			if err != nil {
+				return err
+			}
 			if conf.Service.Debug {
 				if err := pprofSrv.Close(shutdownCtx); err != nil {
 					logger.Error("pprof服务器关闭错误: ", err)
 				}
 			}
-
-			// 关闭所有系统组件
-			serviceContext.Close()
 			return nil
 		}),
-		micro.AfterStop(func() error {
-			if eb != nil {
-				eb.Close()
-			}
-			return nil
-		}),
-		micro.WrapClient(
-			opentelemetry.NewClientWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
-			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
-		),
+		micro.WrapClient(wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version, zapLogger)),
 		micro.WrapSubscriber(
-			opentelemetry.NewSubscriberWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
-			deadLetterWrapper.Wrapper(),
+			dealLetterWrapper.Wrapper(),
 			logWrapper.SubscribeWrapper(),
 		),
 	)
-	// 注册应用层服务及事件侦听器（注入 broker 和 producer channels）
-	eb = event.NewListener(
-		event.WithBroker(broker),
-		event.WithClient(service.Client()),
-		event.WithLogger(zapLogger),
-		event.WithPulishTimeThreshold(conf.Broker.Kafka.Producer.PublishTimeThreshold),
-		event.WithProducerChannels(successChan, errorChan),
-	)
+
+	// 注册应用层服务及事件侦听器
+	eb := event.NewListener(service.Client())
 	event.RegisterPublisher(conf.Broker, eb)
-	eb.Start()
+	defer eb.Close()
 	orderAppService := appservice.NewOrderApplicationService(serviceContext, eb)
 
 	productEventHandler := subscriber.NewProductEventHandler(orderAppService)

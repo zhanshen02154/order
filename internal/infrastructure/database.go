@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// InitDB 初始化数据库
+// 初始化数据库
 func InitDB(confInfo *configstruct.MySqlConfig, zapLogger gormlogger.Interface) (*gorm.DB, error) {
 	db, err := gorm.Open(mysql.New(mysql.Config{
 		DSN:                       confInfo.Dsn,
@@ -19,9 +19,6 @@ func InitDB(confInfo *configstruct.MySqlConfig, zapLogger gormlogger.Interface) 
 		DefaultStringSize:         50,
 	}), &gorm.Config{SkipDefaultTransaction: true, Logger: zapLogger})
 	if err != nil {
-		return nil, err
-	}
-	if err := db.Use(tracing.NewPlugin(tracing.WithoutMetrics())); err != nil {
 		return nil, err
 	}
 	sqlDB, err := db.DB()
