@@ -1,6 +1,67 @@
 
+<a name="v5.0.0"></a>
+## [v5.0.0](https://github.com/zhanshen02154/order/compare/v4.0.0...v5.0.0) (2026-01-05)
+
+### Bug Fixes
+
+* 修复事件侦听器
+* 修复GORM日志级别判断
+* 移除事件元数据的TraceId
+* 修复type为core的日志缺失问题
+* 修复发布日志的发布时间阈值判断
+* 取消切片对象池
+* 调整callerSkip
+* 修复事件侦听器日志
+* 删除SQL操作的Debug语句
+* **GORM日志:** 找不到记录输出警告日志
+* **GORM日志:** 增加logLevel赋值
+* **日志:** 删除对象池
+* **死信队列包装器:** 修复死信队列循环推入问题
+* **链路追踪:** 调整包装器顺序
+
+### Code Refactoring
+
+* 取消GORM事务的独立会话
+* 优化日志和字符串生成
+* broker配置改为从config获取
+* GRPC请求日志Logger的TraceID提取自Span
+* **事件侦听器:** 从context获取TraceId
+* **事件侦听器:** 事件侦听器改为异步发送
+* **事件元数据:** 修改事件元数据时间戳为毫秒级时间戳
+* **日志:** 调整发布事件时间阈值
+* **日志:** 优化GRPC请求和发布事件及订阅事件日志
+
+### Features
+
+* 新增日志级别控制 fixed [#124](https://github.com/zhanshen02154/order/issues/124)
+* 新增扣减库存死信队列操作
+* 增加GRPC请求的链路追踪
+* **链路追踪:** 新增订阅事件链路追踪
+* **链路追踪:** 增加发布事件链路追踪
+* **链路追踪:** 新增GORM数据库链路追踪
+
+### BREAKING CHANGE
+
+
+- 删除所有高频操作中的fmt.Sprinf
+- 优化GRPC请求、发布/订阅日志的生成过程
+
+- 修改事件元数据时间戳为毫秒级时间戳
+
+- 移除同步生产者的logger，由事件侦听器里的logger代替。
+- 新增异步生产者
+- 移除同步生产者
+- 新增异步生产者链路追踪
+- 重构事件侦听器配置为Option，支持传入broker、client、logger和发布时间阈值
+
+- 订阅日志新增订阅处理时间阈值，超过该值日志级别为警告
+- 发布日志新增发布时间阈值，超过该值日志级别为警告
+- GRPC请求新增请求时间阈值，超过该值日志级别为警告
+- GRPC请求和订阅事件日志配置改为Option配置
+
+
 <a name="v4.0.0"></a>
-## [v4.0.0](https://github.com/zhanshen02154/order/compare/v3.0.0...v4.0.0) (2025-12-23)
+## [v4.0.0](https://github.com/zhanshen02154/order/compare/v3.0.0...v4.0.0) (2025-12-24)
 
 ### Bug Fixes
 
