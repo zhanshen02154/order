@@ -1,7 +1,6 @@
 package infrastructure
 
 import (
-	"fmt"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/domain/repository"
 	gorm2 "github.com/zhanshen02154/order/internal/infrastructure/persistence/gorm"
@@ -30,7 +29,7 @@ func NewServiceContext(conf *config.SysConfig, zapLogger gormlogger.Interface) (
 	// 加载ETCD分布式锁
 	lockMgr, err := NewEtcdLockManager(conf.Etcd)
 	if err != nil {
-		logger.Errorf(fmt.Sprintf("failed to load lock manager: %v", err))
+		logger.Error("failed to load lock manager: " + err.Error())
 		return nil, err
 	}
 	return &ServiceContext{
@@ -43,15 +42,15 @@ func NewServiceContext(conf *config.SysConfig, zapLogger gormlogger.Interface) (
 	}, nil
 }
 
-// 关闭所有服务
+// Close 关闭所有服务
 func (svc *ServiceContext) Close() {
 	// 关闭数据库
 	if err := svc.closeDB(); err != nil {
-		logger.Errorf("close database error: %v", err)
+		logger.Error("close database error: " + err.Error())
 	}
 	// 关闭ETCD
 	if err := svc.closeEtcd(); err != nil {
-		logger.Errorf("close etcd error: %v", err)
+		logger.Error("close etcd error: " + err.Error())
 	}
 }
 
@@ -65,7 +64,7 @@ func (svc *ServiceContext) closeDB() error {
 		logger.Info("Preparing to close GORM")
 	}
 	if err := sqlDB.Close(); err != nil {
-		logger.Errorf("Failed to close database instance: %v", err)
+		logger.Error("Failed to close database instance: " + err.Error())
 		return err
 	} else {
 		logger.Info("GORM数据库连接已关闭")
@@ -77,21 +76,21 @@ func (svc *ServiceContext) closeDB() error {
 func (svc *ServiceContext) closeEtcd() error {
 	err := svc.LockManager.Close()
 	if err != nil {
-		logger.Errorf("Failed to close etcd lock manager: %v", err)
+		logger.Error("Failed to close etcd lock manager: " + err.Error())
 	} else {
 		logger.Info("ETCD lock manager closed")
 	}
 	return err
 }
 
-// 检查是否健康
+// CheckHealth 检查是否健康
 func (svc *ServiceContext) CheckHealth() error {
 	sqlDB, err := svc.db.DB()
 	if err != nil {
 		return err
 	}
 	if err := sqlDB.Ping(); err != nil {
-		logger.Errorf("Failed to close database instance: %v", err)
+		logger.Error("Failed to close database instance: " + err.Error())
 	}
 	return nil
 }
