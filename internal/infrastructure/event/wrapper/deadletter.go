@@ -35,6 +35,8 @@ func (w *DeadLetterWrapper) Wrapper() server.SubscriberWrapper {
 				logger.Errorf("failed to handler topic %v, error: %s; id: %s", msg.Topic(), err.Error(), msg.Header()["Micro-ID"])
 				return err
 			}
+
+			// 根据errorCode判断 因日志已经记录故直接返回nil
 			switch errStatus.Code() {
 			case codes.InvalidArgument:
 				return nil
