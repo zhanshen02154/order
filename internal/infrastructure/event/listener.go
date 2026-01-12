@@ -2,7 +2,6 @@ package event
 
 import (
 	"context"
-	"github.com/Shopify/sarama"
 	"github.com/zhanshen02154/order/internal/config"
 	"go-micro.dev/v4/client"
 )
@@ -14,8 +13,6 @@ type Listener interface {
 	UnRegister(topic string) bool
 	Close()
 	Start()
-	Successes() chan *sarama.ProducerMessage
-	Errors() chan *sarama.ProducerError
 }
 
 // RegisterPublisher 注册发布事件
