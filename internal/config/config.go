@@ -44,7 +44,7 @@ type ConsulInfo struct {
 	RegistryAddrs    []string `json:"registry_addrs" yaml:"registry_addrs"`
 }
 
-// MySQL配置信息
+// MySqlConfig MySQL配置信息
 type MySqlConfig struct {
 	Dsn             string `json:"dsn" yaml:"dsn"`
 	Host            string `json:"host" yaml:"host"`
@@ -86,6 +86,7 @@ type Broker struct {
 	Driver                 string   `json:"driver" yaml:"driver"`
 	Kafka                  *Kafka   `json:"kafka" yaml:"kafka"`
 	Publisher              []string `json:"publisher" yaml:"publisher"`
+	PublishTimeThreshold   int64    `json:"publish_time_threshold" yaml:"publish_time_threshold"`
 	SubscribeSlowThreshold int64    `json:"subscribe_slow_threshold" yaml:"subscribe_slow_threshold"`
 }
 
@@ -100,18 +101,16 @@ type Kafka struct {
 }
 
 type KafkaProducer struct {
-	MaxRetry             int   `json:"max_retry" yaml:"max_retry"`
-	MaxRetryBackOff      int   `json:"max_retry_back_off" yaml:"max_retry_back_off"`
-	FlushBytes           int   `json:"flush_bytes" yaml:"flush_bytes"`
-	MaxOpenRequests      int   `json:"max_open_requests" yaml:"max_open_requests"`
-	PublishTimeThreshold int64 `json:"publish_time_threshold" yaml:"publish_time_threshold"`
+	MaxRetry        int `json:"max_retry" yaml:"max_retry"`
+	MaxRetryBackOff int `json:"max_retry_back_off" yaml:"max_retry_back_off"`
+	FlushBytes      int `json:"flush_bytes" yaml:"flush_bytes"`
+	MaxOpenRequests int `json:"max_open_requests" yaml:"max_open_requests"`
 }
 
 type KafkaConsumer struct {
-	Group            *KafkaConsumerGroup `json:"group" yaml:"group"`
-	AutoCommitOffset bool                `json:"auto_commit_offset" yaml:"auto_commit_offset"`
-	FetchMin         int32               `json:"fetch_min" yaml:"fetch_min"`
-	FetchMax         int32               `json:"fetch_max" yaml:"fetch_max"`
+	Group    *KafkaConsumerGroup `json:"group" yaml:"group"`
+	FetchMin int32               `json:"fetch_min" yaml:"fetch_min"`
+	FetchMax int32               `json:"fetch_max" yaml:"fetch_max"`
 }
 
 type KafkaConsumerGroup struct {

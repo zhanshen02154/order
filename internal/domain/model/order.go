@@ -13,10 +13,17 @@ type Order struct {
 	TradeTime   time.Time     `gorm:"type:datetime;comment:'下单时间'" json:"trade_time"`
 	PayStatus   int32         `gorm:"type:tinyint(4);not null;default:0;comment:'支付状态'" json:"pay_status"`
 	ShipStatus  int32         `gorm:"type:tinyint(4);not null;default:0;comment:'运输状态'" json:"ship_status"`
+	PayError    string        `gorm:"comment:'支付失败原因'" json:"pay_error"`
 	PayTime     sql.NullTime  `gorm:"type:datetime;comment:'支付时间'" json:"pay_time"`
 	Price       float64       `gorm:"type:decimal(18,2);not null;default:0;comment:'支付金额'" json:"price"`
 	OrderDetail []OrderDetail `gorm:"ForeignKey:OrderId" json:"order_detail"`
-	PayError    string        `gorm:"type:text;not null:default:'';comment:'支付错误信息'" json:"pay_error"`
 	CreatedAt   time.Time     `gorm:"type:datetime;comment:'创建时间'" json:"created_at"`
 	UpdatedAt   time.Time     `gorm:"type:datetime;comment:'更新时间'" json:"updated_at"`
+}
+
+type PayOrderInfo struct {
+	Id               int64                `json:"id"`
+	PayStatus        int32                `json:"pay_status"`
+	PayTime          time.Time            `json:"pay_time"`
+	OrderDetailBasic []PayOrderDetailInfo `json:"order_detail_basic" gorm:"ForeignKey:OrderId"`
 }

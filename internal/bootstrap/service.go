@@ -114,19 +114,23 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		),
 		micro.WrapSubscriber(
 			opentelemetry.NewSubscriberWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
-			deadLetterWrapper.Wrapper(),
 			logWrapper.SubscribeWrapper(),
+			deadLetterWrapper.Wrapper(),
 		),
 	)
-	// 注册应用层服务及事件侦听器（注入 broker 和 producer channels）
+	// 注册应用层服务及事件侦听器
 	eb = event.NewListener(
-		event.WithBroker(broker),
-		event.WithClient(service.Client()),
-		event.WithLogger(zapLogger),
-		event.WithPulishTimeThreshold(conf.Broker.Kafka.Producer.PublishTimeThreshold),
 		event.WithProducerChannels(successChan, errorChan),
+		event.WrapPublishCallback(
+			event.NewTracerWrapper(event.WithTracerProvider(otel.GetTracerProvider())),
+			event.NewPublicCallbackLogWrapper(
+				event.WithLogger(zapLogger),
+				event.WithTimeThreshold(conf.Broker.PublishTimeThreshold),
+			),
+			event.NewDeadletterWrapper(event.WithBroker(broker), event.WithTracer(otel.GetTracerProvider())),
+		),
 	)
-	event.RegisterPublisher(conf.Broker, eb)
+	event.RegisterPublisher(conf.Broker, eb, service.Client())
 	eb.Start()
 	orderAppService := appservice.NewOrderApplicationService(serviceContext, eb)
 

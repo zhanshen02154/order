@@ -16,7 +16,6 @@ import (
 type ProductEventHandler interface {
 	OnPaymentSuccessFailed(ctx context.Context, req *order.OnPaymentSuccess) error
 	OnInventoryDeductSuccess(ctx context.Context, req *product.OnInventoryDeductSuccess) error
-	OnInventoryDeductSuccessFailed(ctx context.Context, req *product.OnInventoryDeductSuccess) error
 	RegisterSubscriber(srv server.Server)
 }
 
@@ -30,7 +29,7 @@ func NewProductEventHandler(appSrv service.IOrderApplicationService) ProductEven
 	return &productEventHandlerImpl{appSrv: appSrv}
 }
 
-// OnPaymentSuccessFailed 支付成功事件死信队列
+// OnPaymentSuccessFailed 扣减库存失败后的处理
 func (h *productEventHandlerImpl) OnPaymentSuccessFailed(ctx context.Context, req *order.OnPaymentSuccess) error {
 	if req.OrderId == 0 {
 		return status.Error(codes.InvalidArgument, "order_id cannot be empty")
@@ -47,12 +46,13 @@ func (h *productEventHandlerImpl) OnInventoryDeductSuccess(ctx context.Context, 
 	return err
 }
 
-// OnInventoryDeductSuccessFailed 扣减库存失败后的处理
+// OnInventoryDeductSuccessFailed 库存扣减失败
 func (h *productEventHandlerImpl) OnInventoryDeductSuccessFailed(ctx context.Context, req *product.OnInventoryDeductSuccess) error {
 	if req.OrderId == 0 {
-		return status.Error(codes.InvalidArgument, "order_id cannot be empty")
+		return status.Error(codes.InvalidArgument, "orderId cannot be empty")
 	}
-	return h.appSrv.RevertPayStatus(ctx, req.OrderId)
+	err := h.appSrv.RevertPayStatus(ctx, req.OrderId)
+	return err
 }
 
 // RegisterSubscriber 注册订阅者

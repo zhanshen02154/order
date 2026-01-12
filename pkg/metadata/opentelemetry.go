@@ -2,7 +2,7 @@ package metadata
 
 import (
 	"context"
-"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // 从Span获取TraceID
