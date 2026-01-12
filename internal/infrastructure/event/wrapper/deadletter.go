@@ -37,29 +37,35 @@ func (w *DeadLetterWrapper) Wrapper() server.SubscriberWrapper {
 			}
 			switch errStatus.Code() {
 			case codes.InvalidArgument:
-				return err
+				return nil
 			case codes.DataLoss:
-				return err
+				return nil
 			case codes.PermissionDenied:
-				return err
+				return nil
 			case codes.Unauthenticated:
-				return err
+				return nil
 			case codes.Aborted:
-				return err
+				return nil
 			case codes.NotFound:
-				return err
+				return nil
 			}
 
+			header := make(map[string]string)
+			header["error"] = err.Error()
+			for k, v := range msg.Header() {
+				header[k] = v
+			}
 			dlMsg := broker.Message{
-				Header: msg.Header(),
+				Header: header,
 				Body:   msg.Body(),
 			}
-			dlMsg.Header["error"] = err.Error()
 			topic := msg.Topic() + "DLQ"
 			if err := w.b.Publish(topic, &dlMsg); err != nil {
 				logger.Errorf("failed to publish to %s, error: %s", topic, err.Error())
 			}
-			return err
+
+			// 一律返回nil让broker标记为成功
+			return nil
 		}
 	}
 }

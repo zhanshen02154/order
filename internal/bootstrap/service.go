@@ -114,8 +114,8 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		),
 		micro.WrapSubscriber(
 			opentelemetry.NewSubscriberWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
-			deadLetterWrapper.Wrapper(),
 			logWrapper.SubscribeWrapper(),
+			deadLetterWrapper.Wrapper(),
 		),
 	)
 	// 注册应用层服务及事件侦听器（注入 broker 和 producer channels）
