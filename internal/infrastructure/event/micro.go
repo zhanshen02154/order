@@ -23,7 +23,6 @@ const (
 type microListener struct {
 	mu             sync.RWMutex
 	eventPublisher map[string]micro.Event
-	c              client.Client
 	successChan    chan *sarama.ProducerMessage
 	errorChan      chan *sarama.ProducerError
 	wg             sync.WaitGroup
@@ -51,11 +50,11 @@ func (l *microListener) Publish(ctx context.Context, topic string, msg interface
 }
 
 // Register 注册
-func (l *microListener) Register(topic string) bool {
+func (l *microListener) Register(topic string, c client.Client) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if _, ok := l.eventPublisher[topic]; !ok {
-		l.eventPublisher[topic] = micro.NewEvent(topic, l.c)
+		l.eventPublisher[topic] = micro.NewEvent(topic, c)
 	}
 	logger.Info("event ", topic, " was registered")
 	return true
@@ -95,11 +94,18 @@ func (l *microListener) Close() {
 	}
 	if l.quitChan != nil {
 		close(l.quitChan)
-		l.quitChan = nil
 	}
 	l.mu.Unlock()
 
 	l.wg.Wait()
+
+	// 在所有 handler goroutine 退出后，再把引用置为 nil，避免竞争条件
+	l.mu.Lock()
+	if l.quitChan != nil {
+		l.quitChan = nil
+	}
+	l.started = false
+	l.mu.Unlock()
 }
 
 // Start 启动
@@ -195,21 +201,11 @@ func NewListener(opts ...Option) Listener {
 		wg:             sync.WaitGroup{},
 		quitChan:       make(chan struct{}),
 		opts: &options{
-			wrappers: make([]PublishCallbackWrapper, 0, 30),
+			wrappers: make([]PublishCallbackWrapper, 0, 10),
 		},
 	}
 	for _, opt := range opts {
 		opt(&listener)
 	}
 	return &listener
-}
-
-// Successes 返回内部 success 通道（用于将 producer.Successes() 转发至此）
-func (l *microListener) Successes() chan *sarama.ProducerMessage {
-	return l.successChan
-}
-
-// Errors 返回内部 error 通道（用于将 producer.Errors() 转发至此）
-func (l *microListener) Errors() chan *sarama.ProducerError {
-	return l.errorChan
 }

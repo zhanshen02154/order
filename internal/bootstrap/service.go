@@ -120,7 +120,6 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	)
 	// 注册应用层服务及事件侦听器
 	eb = event.NewListener(
-		event.WithClient(service.Client()),
 		event.WithProducerChannels(successChan, errorChan),
 		event.WrapPublishCallback(
 			event.NewTracerWrapper(event.WithTracerProvider(otel.GetTracerProvider())),
@@ -131,7 +130,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			event.NewDeadletterWrapper(event.WithBroker(broker), event.WithTracer(otel.GetTracerProvider())),
 		),
 	)
-	event.RegisterPublisher(conf.Broker, eb)
+	event.RegisterPublisher(conf.Broker, eb, service.Client())
 	eb.Start()
 	orderAppService := appservice.NewOrderApplicationService(serviceContext, eb)
 

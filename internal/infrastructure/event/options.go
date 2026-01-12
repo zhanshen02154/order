@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/Shopify/sarama"
 	"go-micro.dev/v4/broker"
-	"go-micro.dev/v4/client"
 )
 
 type options struct {
@@ -45,13 +44,6 @@ func WrapPublishCallback(opts ...PublishCallbackWrapper) Option {
 			wrps = append(wrps, o)
 			listener.opts.wrappers = wrps
 		}
-	}
-}
-
-// WithClient 设置客户端
-func WithClient(c client.Client) Option {
-	return func(l *microListener) {
-		l.c = c
 	}
 }
 
