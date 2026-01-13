@@ -7,12 +7,14 @@ import (
 	grpcclient "github.com/go-micro/plugins/v4/client/grpc"
 	grpc2 "github.com/go-micro/plugins/v4/server/grpc"
 	"github.com/go-micro/plugins/v4/transport/grpc"
+	"github.com/go-micro/plugins/v4/wrapper/monitoring/prometheus"
 	ratelimit "github.com/go-micro/plugins/v4/wrapper/ratelimiter/uber"
 	"github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry"
 	appservice "github.com/zhanshen02154/order/internal/application/service"
 	"github.com/zhanshen02154/order/internal/config"
 	"github.com/zhanshen02154/order/internal/infrastructure"
 	"github.com/zhanshen02154/order/internal/infrastructure/event"
+	"github.com/zhanshen02154/order/internal/infrastructure/event/monitor"
 	"github.com/zhanshen02154/order/internal/infrastructure/event/wrapper"
 	"github.com/zhanshen02154/order/internal/interfaces/handler"
 	"github.com/zhanshen02154/order/internal/interfaces/subscriber"
@@ -33,10 +35,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 
 	probeServer := infrastructure.NewProbeServer(conf.Service.HeathCheckAddr, serviceContext)
 
-	var pprofSrv *infrastructure.PprofServer
-	if conf.Service.Debug {
-		pprofSrv = infrastructure.NewPprofServer(":6060")
-	}
+	monitorSvr := infrastructure.NewMonitorServer(":6060")
 
 	//common.PrometheusBoot(PrometheusPort)
 
@@ -73,12 +72,13 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		micro.WrapHandler(
 			ratelimit.NewHandlerWrapper(conf.Service.Qps),
 			opentelemetry.NewHandlerWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
+			prometheus.NewHandlerWrapper(prometheus.ServiceName(conf.Service.Name), prometheus.ServiceVersion(conf.Service.Version)),
 			logWrapper.RequestLogWrapper,
 		),
 		micro.Broker(broker),
 		micro.AfterStart(func() error {
-			if pprofSrv != nil {
-				pprofSrv.Start()
+			if monitorSvr != nil {
+				monitorSvr.Start()
 			}
 			if err := broker.Connect(); err != nil {
 				return err
@@ -93,7 +93,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			defer cancel()
 			logger.Info("收到关闭信号，正在停止健康检查服务器...")
 			if conf.Service.Debug {
-				if err := pprofSrv.Close(shutdownCtx); err != nil {
+				if err := monitorSvr.Close(shutdownCtx); err != nil {
 					logger.Error("pprof服务器关闭错误: ", err)
 				}
 			}
@@ -110,10 +110,12 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		}),
 		micro.WrapClient(
 			opentelemetry.NewClientWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
+			monitor.NewClientWrapper(monitor.WithName(conf.Service.Name), monitor.WithVersion(conf.Service.Version)),
 			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
 		),
 		micro.WrapSubscriber(
 			opentelemetry.NewSubscriberWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
+			prometheus.NewSubscriberWrapper(prometheus.ServiceName(conf.Service.Name), prometheus.ServiceVersion(conf.Service.Version)),
 			logWrapper.SubscribeWrapper(),
 			deadLetterWrapper.Wrapper(),
 		),
@@ -121,13 +123,15 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	// 注册应用层服务及事件侦听器
 	eb = event.NewListener(
 		event.WithProducerChannels(successChan, errorChan),
+		event.WithServiceName(conf.Service.Name),
+		event.WithServiceVersion(conf.Service.Version),
 		event.WrapPublishCallback(
 			event.NewTracerWrapper(event.WithTracerProvider(otel.GetTracerProvider())),
 			event.NewPublicCallbackLogWrapper(
 				event.WithLogger(zapLogger),
 				event.WithTimeThreshold(conf.Broker.PublishTimeThreshold),
 			),
-			event.NewDeadletterWrapper(event.WithBroker(broker), event.WithTracer(otel.GetTracerProvider())),
+			event.NewDeadletterWrapper(event.WithBroker(broker), event.WithTracer(otel.GetTracerProvider()), event.WithServiceInfo(conf.Service)),
 		),
 	)
 	event.RegisterPublisher(conf.Broker, eb, service.Client())

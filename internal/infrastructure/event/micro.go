@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/zhanshen02154/order/internal/infrastructure/event/monitor"
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/broker"
 	"go-micro.dev/v4/client"
 	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/metadata"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -185,7 +188,21 @@ func (l *microListener) handleCallback(sg *sarama.ProducerMessage, err error) {
 	ctx = context.WithValue(ctx, offsetKey{}, sg.Offset)
 
 	fn := func(ctx context.Context, msg *broker.Message, err error) {
-		return
+		if topic, ok := msg.Header["Micro-Topic"]; ok {
+			if err == nil {
+				monitor.MessageProducedCount.WithLabelValues(topic, "success", l.opts.name, l.opts.version).Inc()
+			} else {
+				monitor.MessageProducedCount.WithLabelValues(topic, "failure", l.opts.name, l.opts.version).Inc()
+			}
+			if _, ok := msg.Header["Timastamp"]; ok {
+				startTime, convErr := strconv.ParseInt(msg.Header["Timestamp"], 10, 64)
+				if convErr == nil {
+					duration := time.Now().Sub(time.UnixMilli(startTime)).Seconds() * 1e3
+					monitor.ProduceDuration.WithLabelValues(topic, l.opts.name, l.opts.version).Observe(duration)
+				}
+			}
+			monitor.MessagesInFlight.WithLabelValues(topic, l.opts.name, l.opts.version).Dec()
+		}
 	}
 	for i := len(l.opts.wrappers); i > 0; i-- {
 		fn = l.opts.wrappers[i-1](fn)
