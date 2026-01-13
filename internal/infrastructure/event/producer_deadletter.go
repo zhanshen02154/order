@@ -3,6 +3,8 @@ package event
 import (
 	"context"
 	"github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry"
+	"github.com/zhanshen02154/order/internal/config"
+	"github.com/zhanshen02154/order/internal/infrastructure/event/monitor"
 	"go-micro.dev/v4/broker"
 	"go-micro.dev/v4/logger"
 	"go.opentelemetry.io/otel/codes"
@@ -20,6 +22,8 @@ type deadletterOptions struct {
 	asyncBroker broker.Broker
 	opts        struct {
 		traceProvider trace.TracerProvider
+		service       string
+		version       string
 	}
 }
 
@@ -59,6 +63,8 @@ func NewDeadletterWrapper(opts ...DeadLetterOption) PublishCallbackWrapper {
 			}
 			header["Timestamp"] = strconv.FormatInt(time.Now().UnixMilli(), 10)
 			header["Micro-Topic"] = topic
+			header["Source"] = dlqOptions.opts.service
+			header["Schema_version"] = dlqOptions.opts.version
 			dlMsg := broker.Message{
 				Header: header,
 				Body:   msg.Body,
@@ -67,6 +73,8 @@ func NewDeadletterWrapper(opts ...DeadLetterOption) PublishCallbackWrapper {
 				logger.Error("Failed to publish dead letter topic " + topic + " error: " + pErr.Error())
 				span.SetStatus(codes.Error, pErr.Error())
 				span.RecordError(pErr)
+			} else {
+				monitor.MessagesInFlight.WithLabelValues(topic, dlqOptions.opts.service, dlqOptions.opts.version).Inc()
 			}
 			return
 		}
@@ -82,5 +90,13 @@ func WithBroker(b broker.Broker) DeadLetterOption {
 func WithTracer(tracerProvider trace.TracerProvider) DeadLetterOption {
 	return func(d *deadletterOptions) {
 		d.opts.traceProvider = tracerProvider
+	}
+}
+
+// WithServiceInfo 引入服务信息
+func WithServiceInfo(info *config.ServiceInfo) DeadLetterOption {
+	return func(o *deadletterOptions) {
+		o.opts.service = info.Name
+		o.opts.version = info.Version
 	}
 }

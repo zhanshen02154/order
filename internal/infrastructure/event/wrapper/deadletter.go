@@ -3,6 +3,7 @@ package wrapper
 import (
 	"context"
 	"github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry"
+	"github.com/zhanshen02154/order/internal/infrastructure/event/monitor"
 	"go-micro.dev/v4/broker"
 	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/server"
@@ -11,7 +12,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const deadLetterTopicKey = "DLQ"
@@ -59,22 +62,25 @@ func (w *DeadLetterWrapper) Wrapper() server.SubscriberWrapper {
 			spanOpts := []trace.SpanStartOption{
 				trace.WithSpanKind(trace.SpanKindProducer),
 			}
-			newCtx, span := opentelemetry.StartSpanFromContext(ctx, w.traceProvicer, "Pub to dead letter topic "+msg.Topic()+deadLetterTopicKey, spanOpts...)
+			topic := msg.Topic() + deadLetterTopicKey
+			newCtx, span := opentelemetry.StartSpanFromContext(ctx, w.traceProvicer, "Pub to dead letter topic "+topic, spanOpts...)
 			defer span.End()
 			header := make(map[string]string)
 			header["x-error"] = err.Error()
 			for k, v := range msg.Header() {
 				header[k] = v
 			}
+			header["Timestamp"] = strconv.FormatInt(time.Now().UnixMilli(), 10)
 			dlMsg := broker.Message{
 				Header: header,
 				Body:   msg.Body(),
 			}
-			topic := msg.Topic() + deadLetterTopicKey
 			if err := w.b.Publish(topic, &dlMsg, broker.PublishContext(newCtx)); err != nil {
 				logger.Errorf("failed to publish to %s, error: %s", topic, err.Error())
 				span.SetStatus(tracecode.Error, err.Error())
 				span.RecordError(err)
+			} else {
+				monitor.MessagesInFlight.WithLabelValues(topic, header["Source"], header["Schema_version"]).Inc()
 			}
 
 			// 一律返回nil让broker标记为成功

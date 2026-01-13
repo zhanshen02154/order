@@ -8,6 +8,8 @@ import (
 
 type options struct {
 	wrappers []PublishCallbackWrapper
+	name     string
+	version  string
 }
 
 type PublishCallbackFunc func(ctx context.Context, msg *broker.Message, err error)
@@ -56,5 +58,19 @@ func WithProducerChannels(success chan *sarama.ProducerMessage, errc chan *saram
 		if errc != nil {
 			l.errorChan = errc
 		}
+	}
+}
+
+// WithServiceName 名称
+func WithServiceName(name string) Option {
+	return func(l *microListener) {
+		l.opts.name = name
+	}
+}
+
+// WithServiceVersion 版本
+func WithServiceVersion(version string) Option {
+	return func(l *microListener) {
+		l.opts.version = version
 	}
 }
