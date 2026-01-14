@@ -153,10 +153,10 @@ func (c *SysConfig) CheckConfig() error {
 		c.Service.LogLevel = "info"
 	} else {
 		c.Service.LogLevel = strings.ToLower(c.Service.LogLevel)
-		invalidLogLevel := false
+		invalidLogLevel := true
 		for _, item := range logLevels {
 			if item == c.Service.LogLevel {
-				invalidLogLevel = true
+				invalidLogLevel = false
 				break
 			}
 		}
