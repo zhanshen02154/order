@@ -105,12 +105,14 @@ type KafkaProducer struct {
 	MaxRetryBackOff int `json:"max_retry_back_off" yaml:"max_retry_back_off"`
 	FlushBytes      int `json:"flush_bytes" yaml:"flush_bytes"`
 	MaxOpenRequests int `json:"max_open_requests" yaml:"max_open_requests"`
+	FlushFrequency  int `json:"flush_frequency" yaml:"flush_frequency"`
 }
 
 type KafkaConsumer struct {
-	Group    *KafkaConsumerGroup `json:"group" yaml:"group"`
-	FetchMin int32               `json:"fetch_min" yaml:"fetch_min"`
-	FetchMax int32               `json:"fetch_max" yaml:"fetch_max"`
+	Group             *KafkaConsumerGroup `json:"group" yaml:"group"`
+	FetchMin          int32               `json:"fetch_min" yaml:"fetch_min"`
+	FetchMax          int32               `json:"fetch_max" yaml:"fetch_max"`
+	MaxProcessingTime int                 `json:"max_processing_time" yaml:"max_processing_time"`
 }
 
 type KafkaConsumerGroup struct {

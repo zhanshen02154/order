@@ -21,7 +21,7 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig.Producer.Retry.Max = conf.Producer.MaxRetry
 	kafkaConfig.Producer.RequiredAcks = sarama.WaitForAll
 	kafkaConfig.Producer.Flush.Bytes = conf.Producer.FlushBytes
-	kafkaConfig.Producer.Flush.Frequency = 100 * time.Millisecond
+	kafkaConfig.Producer.Flush.Frequency = time.Duration(conf.Producer.FlushFrequency) * time.Millisecond
 	kafkaConfig.Producer.Compression = sarama.CompressionGZIP
 	kafkaConfig.Producer.Partitioner = sarama.NewHashPartitioner
 	kafkaConfig.Producer.Idempotent = false
@@ -31,6 +31,8 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig.Consumer.Fetch.Min = conf.Consumer.FetchMin
 	kafkaConfig.Consumer.Fetch.Max = conf.Consumer.FetchMax
 	kafkaConfig.Consumer.Group.Session.Timeout = time.Second * time.Duration(conf.Consumer.Group.SessionTimeout)
+	kafkaConfig.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategySticky
+	kafkaConfig.Consumer.MaxProcessingTime = 300 * time.Millisecond
 	// 确保 AsyncProducer 返回 successes channel
 	kafkaConfig.Producer.Return.Successes = true
 	kafkaConfig.Producer.Return.Errors = true
