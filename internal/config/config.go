@@ -149,10 +149,10 @@ func (c *SysConfig) CheckConfig() error {
 		return errors.New("subscribe_slow_threshold must less than kafka.consumer.max_processing_time")
 	}
 	logLevels := [3]string{"info", "warn", "error"}
-	c.Service.LogLevel = strings.ToLower(c.Service.LogLevel)
 	if c.Service.LogLevel == "" {
 		c.Service.LogLevel = "info"
 	} else {
+		c.Service.LogLevel = strings.ToLower(c.Service.LogLevel)
 		invalidLogLevel := false
 		for _, item := range logLevels {
 			if item == c.Service.LogLevel {
