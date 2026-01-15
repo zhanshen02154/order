@@ -99,17 +99,24 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 	})
 }
 
-// 恢复支付状态
+// RevertPayStatus 恢复支付状态
 func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, orderId int64) error {
+	lockKey := "revertpaystatus-" + strconv.FormatInt(orderId, 10)
+	lock, err := appService.serviceContext.LockManager.NewLock(ctx, lockKey, 10)
+	err = lock.TryLock(ctx)
+	defer lock.UnLock(ctx)
+	if err != nil {
+		return err
+	}
 	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
 	if err != nil {
 		return status.Error(codes.Internal, "order find error: "+err.Error())
 	}
 	if orderInfo == nil {
-		return status.Error(codes.Aborted, "order not found"+err.Error())
+		return status.Error(codes.NotFound, "order not found")
 	}
 	return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
-		err := appService.orderDataService.UpdateOrderPayStatus(ctx, orderId, 5)
+		err := appService.orderDataService.RevertPayment(txCtx, orderInfo)
 		if err != nil {
 			return status.Error(codes.Aborted, "failed to update status: "+strconv.FormatInt(orderId, 10))
 		}
@@ -117,7 +124,7 @@ func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, 
 	})
 }
 
-// 确认支付
+// ConfirmPayment 确认支付
 func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, orderId int64) error {
 	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
 	if err != nil {

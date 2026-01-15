@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// 商品事件处理器Handler
+// ProductEventHandler 商品事件处理器Handler
 type ProductEventHandler interface {
 	OnPaymentSuccessFailed(ctx context.Context, req *order.OnPaymentSuccess) error
 	OnInventoryDeductSuccess(ctx context.Context, req *product.OnInventoryDeductSuccess) error
@@ -24,12 +24,12 @@ type productEventHandlerImpl struct {
 	appSrv service.IOrderApplicationService
 }
 
-// 创建商品事件处理器
+// NewProductEventHandler 创建商品事件处理器
 func NewProductEventHandler(appSrv service.IOrderApplicationService) ProductEventHandler {
 	return &productEventHandlerImpl{appSrv: appSrv}
 }
 
-// 扣减库存失败后的处理
+// OnPaymentSuccessFailed 扣减库存失败后的处理
 func (h *productEventHandlerImpl) OnPaymentSuccessFailed(ctx context.Context, req *order.OnPaymentSuccess) error {
 	if req.OrderId == 0 {
 		return status.Error(codes.InvalidArgument, "order_id cannot be empty")
@@ -37,7 +37,7 @@ func (h *productEventHandlerImpl) OnPaymentSuccessFailed(ctx context.Context, re
 	return h.appSrv.RevertPayStatus(ctx, req.OrderId)
 }
 
-// 库存扣减成功
+// OnInventoryDeductSuccess 库存扣减成功
 func (h *productEventHandlerImpl) OnInventoryDeductSuccess(ctx context.Context, req *product.OnInventoryDeductSuccess) error {
 	if req.OrderId == 0 {
 		return status.Error(codes.InvalidArgument, "orderId cannot be empty")
@@ -46,7 +46,16 @@ func (h *productEventHandlerImpl) OnInventoryDeductSuccess(ctx context.Context, 
 	return err
 }
 
-// 注册订阅者
+// OnInventoryDeductSuccessFailed 库存扣减失败
+func (h *productEventHandlerImpl) OnInventoryDeductSuccessFailed(ctx context.Context, req *product.OnInventoryDeductSuccess) error {
+	if req.OrderId == 0 {
+		return status.Error(codes.InvalidArgument, "orderId cannot be empty")
+	}
+	err := h.appSrv.RevertPayStatus(ctx, req.OrderId)
+	return err
+}
+
+// RegisterSubscriber 注册订阅者
 func (h *productEventHandlerImpl) RegisterSubscriber(srv server.Server) {
 	var err error
 	queue := server.SubscriberQueue("order-consumer")
@@ -55,6 +64,10 @@ func (h *productEventHandlerImpl) RegisterSubscriber(srv server.Server) {
 		logger.Errorf("failed to register subscriber, error: %s", err.Error())
 	}
 	err = micro.RegisterSubscriber("OnPaymentSuccessDLQ", srv, h.OnPaymentSuccessFailed, queue)
+	if err != nil {
+		logger.Errorf("failed to register subscriber, error: %s", err.Error())
+	}
+	err = micro.RegisterSubscriber("OnInventoryDeductSuccessDLQ", srv, h.OnInventoryDeductSuccessFailed, queue)
 	if err != nil {
 		logger.Errorf("failed to register subscriber, error: %s", err.Error())
 	}

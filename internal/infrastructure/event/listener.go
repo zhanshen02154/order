@@ -2,7 +2,6 @@ package event
 
 import (
 	"context"
-	"github.com/Shopify/sarama"
 	"github.com/zhanshen02154/order/internal/config"
 	"go-micro.dev/v4/client"
 )
@@ -10,19 +9,17 @@ import (
 // Listener 事件总线
 type Listener interface {
 	Publish(ctx context.Context, topic string, event interface{}, key string, opts ...client.PublishOption) error
-	Register(topic string) bool
+	Register(topic string, c client.Client) bool
 	UnRegister(topic string) bool
 	Close()
 	Start()
-	Successes() chan *sarama.ProducerMessage
-	Errors() chan *sarama.ProducerError
 }
 
 // RegisterPublisher 注册发布事件
-func RegisterPublisher(conf *config.Broker, eb Listener) {
+func RegisterPublisher(conf *config.Broker, eb Listener, c client.Client) {
 	if len(conf.Publisher) > 0 {
 		for i := range conf.Publisher {
-			eb.Register(conf.Publisher[i])
+			eb.Register(conf.Publisher[i], c)
 		}
 	}
 }
