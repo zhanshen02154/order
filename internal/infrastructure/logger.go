@@ -3,13 +3,14 @@ package infrastructure
 import (
 	"context"
 	"errors"
+	"time"
+
 	metadatahelper "github.com/zhanshen02154/order/pkg/metadata"
 	"go-micro.dev/v4/server"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"time"
 )
 
 type LogWrapper struct {
@@ -41,7 +42,7 @@ func (w *LogWrapper) RequestLogWrapper(fn server.HandlerFunc) server.HandlerFunc
 		switch {
 		case err != nil:
 			w.logger.Error("Request failed: "+err.Error(), baseFields...)
-		case duration > w.requestSlowTime && err == nil && duration > 0:
+		case duration > 0 && duration > w.requestSlowTime:
 			w.logger.Warn("Slow request", baseFields...)
 		default:
 			w.logger.Info("Request processed", baseFields...)
@@ -72,7 +73,7 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 			switch {
 			case err != nil:
 				w.logger.Error("Event subscribe handler failed: "+err.Error(), baseFields...)
-			case duration > w.requestSlowTime && err == nil && duration > 0:
+			case duration > 0 && duration > w.requestSlowTime:
 				w.logger.Warn("Event subscribe slow", baseFields...)
 			default:
 				w.logger.Info("Event subscribe handler processed", baseFields...)
