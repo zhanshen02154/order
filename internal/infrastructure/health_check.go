@@ -27,9 +27,11 @@ func NewProbeServer(port string, serviceContext *ServiceContext) *ProbeServer {
 		if err != nil {
 			writer.WriteHeader(http.StatusServiceUnavailable)
 			writer.Write([]byte("Not Ready"))
+			logger.Error("health check failed: " + err.Error())
 		} else {
 			writer.WriteHeader(http.StatusOK)
 			writer.Write([]byte("OK"))
+			logger.Info("health check success")
 		}
 	})
 	return &ProbeServer{

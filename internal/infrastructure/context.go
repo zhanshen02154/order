@@ -20,16 +20,24 @@ type ServiceContext struct {
 	Dtm             *dtm.Server
 }
 
+// NewServiceContext 初始化服务上下文
 func NewServiceContext(conf *config.SysConfig, zapLogger gormlogger.Interface) (*ServiceContext, error) {
+	var err error
 	db, err := InitDB(conf.Database, zapLogger)
 	if err != nil {
 		return nil, err
 	}
-
-	// 加载ETCD分布式锁
-	lockMgr, err := NewEtcdLockManager(conf.Etcd)
+	defer func() {
+		if err != nil {
+			if sqlDb, err := db.DB(); err == nil {
+				sqlDb.Close()
+			}
+			logger.Error("failed to load service context: " + err.Error())
+		}
+	}()
+	// 加载Redis分布式锁
+	lockMgr, err := NewRedisLockManager(conf.Redis)
 	if err != nil {
-		logger.Error("failed to load lock manager: " + err.Error())
 		return nil, err
 	}
 	return &ServiceContext{
@@ -49,8 +57,8 @@ func (svc *ServiceContext) Close() {
 		logger.Error("close database error: " + err.Error())
 	}
 	// 关闭ETCD
-	if err := svc.closeEtcd(); err != nil {
-		logger.Error("close etcd error: " + err.Error())
+	if err := svc.closeLock(); err != nil {
+		logger.Error("close redis lock manager error: " + err.Error())
 	}
 }
 
@@ -72,25 +80,29 @@ func (svc *ServiceContext) closeDB() error {
 	return nil
 }
 
-// 关闭ETCD
-func (svc *ServiceContext) closeEtcd() error {
+// 关闭分布式锁
+func (svc *ServiceContext) closeLock() error {
 	err := svc.LockManager.Close()
 	if err != nil {
-		logger.Error("Failed to close etcd lock manager: " + err.Error())
+		logger.Error("Failed to close redis lock manager: " + err.Error())
 	} else {
-		logger.Info("ETCD lock manager closed")
+		logger.Info("Redis lock manager closed")
 	}
 	return err
 }
 
-// CheckHealth 检查是否健康
+// CheckHealth 健康检查
 func (svc *ServiceContext) CheckHealth() error {
 	sqlDB, err := svc.db.DB()
 	if err != nil {
 		return err
 	}
 	if err := sqlDB.Ping(); err != nil {
-		logger.Error("Failed to close database instance: " + err.Error())
+		logger.Error("Database instance unhealthy: " + err.Error())
+	}
+	if err := svc.LockManager.CheckHealth(); err != nil {
+		logger.Error("Redis lock manager unhealthy: " + err.Error())
+		return err
 	}
 	return nil
 }

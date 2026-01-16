@@ -40,7 +40,7 @@ func NewOrderApplicationService(
 	return srv
 }
 
-// 根据ID获取订单信息
+// FindOrderByID 根据ID获取订单信息
 func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id int64) (*model.Order, error) {
 	return appService.orderDataService.FindOrderByID(ctx, id)
 }
@@ -48,14 +48,11 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 // PayNotify 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
 	lockKey := "paynotify-" + req.OutTradeNo
-	lock, err := appService.serviceContext.LockManager.NewLock(ctx, lockKey, 15)
-	if err != nil {
-		return err
-	}
-	err = lock.TryLock(ctx)
+	lock := appService.serviceContext.LockManager.NewLock(lockKey, 18)
+	err := lock.TryLock(ctx)
 	defer func() {
 		if err := lock.UnLock(ctx); err != nil {
-			logger.Error("failed to unlock ", lock.GetKey(ctx), " error: ", err)
+			logger.Error("failed to unlock " + lock.GetKey() + " error: " + err.Error())
 		}
 	}()
 	if err != nil {
@@ -102,8 +99,8 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 // RevertPayStatus 恢复支付状态
 func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, orderId int64) error {
 	lockKey := "revertpaystatus-" + strconv.FormatInt(orderId, 10)
-	lock, err := appService.serviceContext.LockManager.NewLock(ctx, lockKey, 10)
-	err = lock.TryLock(ctx)
+	lock := appService.serviceContext.LockManager.NewLock(lockKey, 10)
+	err := lock.TryLock(ctx)
 	defer lock.UnLock(ctx)
 	if err != nil {
 		return err
