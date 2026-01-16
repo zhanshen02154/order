@@ -7,6 +7,7 @@ pipeline {
 		DOCKER_IMAGE = '192.168.0.62/microservice/order'
 		DOCKER_TAG = "${env.GIT_BRANCH}-${env.GIT_COMMIT.substring(0, 8)}"
 		GOPROXY = 'https://goproxy.cn,direct'
+		DOCKER_BUILDKIT = '1'
 	}
 	stages {
 		stage('Build') {
@@ -19,12 +20,7 @@ pipeline {
 			steps {
 				sh '''
 				echo 'Building project...'
-				export CGO_ENABLED=0
-				export GOOS=linux
-				export GOARCH=amd64
-				go env -w GO111MODULE=on
-				go mod download
-				go build -o order cmd/main.go
+				make build
 				echo 'Build success'
 				'''
 			}
@@ -69,7 +65,7 @@ pipeline {
 								sh """
 								set +x
 								/usr/bin/kubectl set image deployment/order-service order-container=${DOCKER_IMAGE}:${DOCKER_TAG} -n dev --record
-								/usr/bin/kubectl rollout status deployment/order-service -n dev --timeout 120s
+								/usr/bin/kubectl rollout status deployment/order-service -n dev --timeout 360s
 								"""
 							}
 						}
@@ -79,7 +75,7 @@ pipeline {
 							withKubeConfig([credentialsId: 'kubernetes-config', serverUrl: "$k8s_api_server", namespace: 'dev']) {
 								sh '''
 								set +x
-								/usr/bin/kubectl rollout undo deployment/order-service -n dev --to-revision=$(/usr/bin/kubectl rollout history deployment/order-service -n dev | awk '{print $1}' | tail -n 2)
+								/usr/bin/kubectl rollout undo deployment/order-service -n dev
 								'''
 							}
 						}
