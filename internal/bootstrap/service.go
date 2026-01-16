@@ -84,16 +84,23 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 				return err
 			}
 			if err := probeServer.Start(); err != nil {
-				logger.Error("健康检查服务器启动失败")
+				logger.Error("failed to start probe server" + err.Error())
 			}
 			return nil
 		}),
 		micro.BeforeStop(func() error {
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
-			logger.Info("收到关闭信号，正在停止健康检查服务器...")
+			logger.Info("Stopping monitor servers...")
 			if err := monitorSvr.Close(shutdownCtx); err != nil {
-				logger.Error("pprof服务器关闭错误: ", err)
+				logger.Error("failed to close monitor servers" + err.Error())
+			} else {
+				logger.Info("Stopping monitor servers successfully")
+			}
+			if err := probeServer.Shutdown(shutdownCtx); err != nil {
+				logger.Error("Failed to close probe server" + err.Error())
+			} else {
+				logger.Info("Successfully closed monitor servers")
 			}
 
 			// 关闭所有系统组件

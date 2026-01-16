@@ -199,12 +199,11 @@ func (c *SysConfig) CheckConfig() error {
 // GetConfig 从consul获取配置
 func GetConfig() (config.Config, error) {
 	// 从consul获取配置
-	consulHost := env.GetEnv("CONSUL_HOST", "127.0.0.1")
-	consulPort := env.GetEnv("CONSUL_PORT", "8500")
+	consulHost := env.GetEnv("CONSUL_HOST", "127.0.0.1:8500")
 	consulPrefix := env.GetEnv("CONSUL_PREFIX", "/micro/")
 	consulSource := consul.NewSource(
 		// Set configuration address
-		consul.WithAddress(consulHost+":"+consulPort),
+		consul.WithAddress(consulHost),
 		consul.WithPrefix(consulPrefix),
 		consul.StripPrefix(true),
 	)
