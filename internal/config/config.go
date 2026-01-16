@@ -2,37 +2,37 @@ package config
 
 import (
 	"errors"
+	"strings"
+
 	"github.com/go-micro/plugins/v4/config/source/consul"
 	"github.com/zhanshen02154/order/pkg/env"
 	"go-micro.dev/v4/config"
 	"go-micro.dev/v4/logger"
-	"strings"
 )
 
 type SysConfig struct {
 	Service     *ServiceInfo `json:"service" yaml:"service"`
 	Database    *MySqlConfig `json:"database" yaml:"database"`
 	Consul      *ConsulInfo  `json:"consul" yaml:"consul"`
-	Etcd        *Etcd        `json:"etcd" yaml:"etcd"`
 	Consumer    *Consumer    `json:"consumer" yaml:"consumer"`
 	Transaction *Transaction `yaml:"transaction" json:"transaction"`
 	Broker      *Broker      `json:"broker" yaml:"broker"`
 	Tracer      *Tracer      `json:"tracer" yaml:"tracer"`
+	Redis       *Redis       `json:"redis" yaml:"redis"`
 }
 
-// 服务信息
+// ServiceInfo 服务信息
 type ServiceInfo struct {
 	Name                 string `json:"name" yaml:"name"`
 	Version              string `json:"version" yaml:"version"`
 	Listen               string `json:"listen" yaml:"listen"`
 	Qps                  int    `json:"qps" yaml:"qps"`
-	Debug                bool   `json:"debug" yaml:"debug"`
 	HeathCheckAddr       string `json:"heath_check_addr" yaml:"heath_check_addr"`
 	RequestSlowThreshold int64  `json:"request_slow_threshold" yaml:"request_slow_threshold"`
 	LogLevel             string `json:"log_level" yaml:"log_level"`
 }
 
-// Consul配置信息
+// ConsulInfo Consul配置信息
 type ConsulInfo struct {
 	Addr             string   `json:"addr" yaml:"addr"`
 	Port             uint     `json:"port" yaml:"port"`
@@ -59,13 +59,20 @@ type MySqlConfig struct {
 	ConnMaxLifeTime uint   `json:"conn_max_life_time" yaml:"conn_max_life_time"`
 }
 
-type Etcd struct {
-	Hosts            []string `json:"hosts" yaml:"hosts"`
-	DialTimeout      int64    `json:"dial_timeout" yaml:"dial_timeout"`
-	Username         string   `yaml:"username" json:"username"`
-	Password         string   `yaml:"password" json:"password"`
-	AutoSyncInterval int64    `yaml:"auto_sync_interval" json:"auto_sync_interval"`
-	Prefix           string   `yaml:"prefix" json:"prefix"`
+// Redis Redis配置
+type Redis struct {
+	Addr           string `json:"addr" yaml:"addr"`
+	Password       string `json:"password" yaml:"password"`
+	Database       int    `json:"database" yaml:"database"`
+	PoolSize       int    `json:"pool_size" yaml:"pool_size"`
+	DialTimeout    int    `json:"dial_timeout" yaml:"dial_timeout"`
+	ReadTimeout    int    `json:"read_timeout" yaml:"read_timeout"`
+	WriteTimeout   int    `json:"write_timeout" yaml:"write_timeout"`
+	MinIdleConns   int    `json:"min_idle_conns" yaml:"min_idle_conns"`
+	Prefix         string `json:"prefix" yaml:"prefix"`
+	LockTries      int    `json:"lock_tries" yaml:"lock_tries"`
+	LockRetryDelay int    `json:"lock_retry_delay" yaml:"lock_retry_delay"`
+	LockDB         int    `json:"lock_db" yaml:"lock_db"`
 }
 
 type Consumer struct {
@@ -147,6 +154,27 @@ func (c *SysConfig) CheckConfig() error {
 	}
 	if c.Broker.SubscribeSlowThreshold >= c.Broker.Kafka.Consumer.MaxProcessingTime {
 		return errors.New("subscribe_slow_threshold must less than kafka.consumer.max_processing_time")
+	}
+
+	// 检查Redis配置
+	if c.Redis == nil {
+		return errors.New("redis config is nil")
+	} else {
+		if c.Redis.Addr == "" {
+			return errors.New("redis addr is empty")
+		}
+		if c.Redis.LockRetryDelay == 0 {
+			c.Redis.LockRetryDelay = 500
+		}
+		if c.Redis.LockTries == 0 {
+			c.Redis.LockTries = 3
+		}
+		if c.Redis.PoolSize == 0 {
+			c.Redis.PoolSize = 10
+		}
+		if c.Redis.MinIdleConns == 0 {
+			c.Redis.MinIdleConns = 1
+		}
 	}
 	logLevels := [3]string{"info", "warn", "error"}
 	if c.Service.LogLevel == "" {

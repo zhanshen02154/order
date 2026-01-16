@@ -13,7 +13,7 @@ type OrderHandler struct {
 	OrderAppService service.IOrderApplicationService
 }
 
-// 获取订单信息
+// GetOrderById 获取订单信息
 func (o *OrderHandler) GetOrderById(ctx context.Context, request *order.OrderId, response *order.OrderInfo) error {
 	orderInfo, err := o.OrderAppService.FindOrderByID(ctx, request.OrderId)
 	if err != nil {
@@ -28,17 +28,13 @@ func (o *OrderHandler) GetOrderById(ctx context.Context, request *order.OrderId,
 // PayNotify 支付回调
 func (o *OrderHandler) PayNotify(ctx context.Context, in *order.PayNotifyRequest, resp *order.PayNotifyResponse) error {
 	if in.OutTradeNo == "" {
-		resp.StatusCode = "9999"
-		resp.Msg = "OutTradeNo cannot be empty or null"
-		return nil
+		return status.Error(codes.InvalidArgument, "outTradeNo cannot be empty")
 	}
 	err := o.OrderAppService.PayNotify(ctx, in)
 	if err != nil {
-		resp.StatusCode = "9999"
-		resp.Msg = "error to notify: " + err.Error()
-	} else {
-		resp.StatusCode = "0000"
-		resp.Msg = "SUCCESS"
+		return status.Error(codes.Aborted, err.Error())
 	}
+	resp.StatusCode = "0000"
+	resp.Msg = "SUCCESS"
 	return nil
 }

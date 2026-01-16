@@ -1,14 +1,55 @@
 
-<a name="v5.0.0"></a>
-## [v5.0.0](https://github.com/zhanshen02154/order/compare/v4.0.0...v5.0.0) (2026-01-05)
+<a name="v6.0.0"></a>
+## [v6.0.0](https://github.com/zhanshen02154/order/compare/v5.0.0...v6.0.0) (2026-01-15)
 
 ### Bug Fixes
 
-* 移除事件元数据的TraceId
-* 修复发布日志的发布时间阈值判断
-* 调整callerSkip
+* 调整日志级别配置检测
+* 调整配置信息检查逻辑
+* 修复库存扣减事件
+* 增加投递到死信队列链路追踪
+* 投递到死信队列后标记为处理成功
+
+### Code Refactoring
+
+* 调整消费者最大处理时间
+* 调整sarama组件配置参数
+* **事件侦听器:** 删除client
+* **事件侦听器:** 日志和链路追踪剥离事件侦听器
+
+### Features
+
+* 新增prometheus监控
+
+### BREAKING CHANGE
+- 删除client
+- 事件侦听器的日志移到包装器并在入口函数初始化
+- 事件侦听器的发布消息回调链路追踪移到包装器并在入口函数初始化
+- 事件侦听器的死信队列移到包装器并在入口函数初始化
+- 移除utils目录
+
+
+<a name="v5.0.0"></a>
+## [v5.0.0](https://github.com/zhanshen02154/order/compare/v4.0.0...v5.0.0) (2026-01-06)
+
+### Bug Fixes
+
+* 删除数据库查询的Debug语句
+* callerSkip增加到2
 * 删除SQL操作的Debug语句
+* 修复事件侦听器
+* 移除TraceId
+* 修复type为core的日志缺失问题
+* 调整callerSkip
+* 修复发布日志的发布时间阈值判断
+* 恢复丢失的代码
+* 恢复丢失的代码
+* 取消切片对象池
+* 修复事件侦听器日志
+* 修复GORM日志级别判断
+* **GORM日志:** 增加logLevel赋值
 * **GORM日志:** 找不到记录输出警告日志
+* **日志:** 删除对象池
 * **死信队列包装器:** 修复死信队列循环推入问题
 * **链路追踪:** 调整包装器顺序
 
@@ -32,6 +73,14 @@
 * **链路追踪:** 新增订阅事件链路追踪
 * **链路追踪:** 增加发布事件链路追踪
 * **链路追踪:** 新增GORM数据库链路追踪
+
+### Performance Improvements
+
+* 日志字段和日志信息构造器用对象池
+
+### Reverts
+
+* Feat/jaeger
 
 ### BREAKING CHANGE
 
@@ -74,7 +123,7 @@
 * 删除error字段
 * 调整日志记录器
 * **ETCD分布式锁:** 采用共享Session
-* **broker:** 扩大请求数量
+* **broker:** 扩大请求数量数量
 
 ### Features
 
