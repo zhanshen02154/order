@@ -41,7 +41,7 @@ pipeline {
 						string(credentialsId: 'CONSUL_PORT', variable: 'consul_port')
 						]) {
 						sh 'set +x'
-						docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}", "--build-arg CONSUL_HOST=$consul_host --build-arg CONSUL_PORT=$consul_port --build-arg CONSUL_PREFIX=/micro/ .")
+						docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
 						docker.withRegistry('https://192.168.0.62', 'harbor-jenkins') {
 							docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
 						}

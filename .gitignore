@@ -2,3 +2,7 @@
 .idea/
 order
 .vscode/
+*.exe
+*.crt
+*.key
+*.p12

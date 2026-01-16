@@ -75,7 +75,7 @@ func (svc *ServiceContext) closeDB() error {
 		logger.Error("Failed to close database instance: " + err.Error())
 		return err
 	} else {
-		logger.Info("GORM数据库连接已关闭")
+		logger.Info("Database instance closed")
 	}
 	return nil
 }
