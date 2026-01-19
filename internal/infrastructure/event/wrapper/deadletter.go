@@ -10,8 +10,6 @@ import (
 	"go.opentelemetry.io/otel"
 	tracecode "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"strconv"
 	"strings"
 	"time"
@@ -38,27 +36,7 @@ func (w *DeadLetterWrapper) Wrapper() server.SubscriberWrapper {
 			if strings.HasSuffix(msg.Topic(), deadLetterTopicKey) {
 				return nil
 			}
-			errStatus, ok := status.FromError(err)
-			if !ok {
-				logger.Errorf("failed to handler topic %v, error: %s; id: %s", msg.Topic(), err.Error(), msg.Header()["Micro-ID"])
-				return nil
-			}
 
-			// 根据errorCode判断 因日志已经记录所以直接返回nil
-			switch errStatus.Code() {
-			case codes.InvalidArgument:
-				return nil
-			case codes.DataLoss:
-				return nil
-			case codes.PermissionDenied:
-				return nil
-			case codes.Unauthenticated:
-				return nil
-			case codes.Aborted:
-				return nil
-			case codes.NotFound:
-				return nil
-			}
 			spanOpts := []trace.SpanStartOption{
 				trace.WithSpanKind(trace.SpanKindProducer),
 			}

@@ -98,12 +98,12 @@ func main() {
 	gormLogger := infrastructure.NewGromLogger(finalLogger, serverLogLevel)
 	serviceContext, err := infrastructure.NewServiceContext(&confInfo, gormLogger)
 	if err != nil {
-		logger.Error("error to load service context: " + err.Error())
+		logger.Error("error to load service context: ", err)
 		return
 	}
 
 	if err := bootstrap.RunService(&confInfo, serviceContext, finalLogger); err != nil {
-		logger.Error("failed to start service: ", err.Error())
+		logger.Error("failed to start service: ", err)
 	}
 }
 

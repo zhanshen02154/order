@@ -37,16 +37,12 @@ pipeline {
 					if (env.TAG_NAME) {
 						DOCKER_TAG = "${env.TAG_NAME}"
 					}
-					withCredentials([string(credentialsId: 'CONSUL_HOST', variable: 'consul_host'), 
-						string(credentialsId: 'CONSUL_PORT', variable: 'consul_port')
-						]) {
-						sh 'set +x'
-						docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
-						docker.withRegistry('https://192.168.0.62', 'harbor-jenkins') {
-							docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-						}
-						sh "docker rmi ${DOCKER_IMAGE}:${DOCKER_TAG}"
-					}
+					sh 'set +x'
+					docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+					docker.withRegistry('https://192.168.0.62', 'harbor-jenkins') {
+					    docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
+                    }
+                    sh "docker rmi ${DOCKER_IMAGE}:${DOCKER_TAG}"
 				}
 			}
 		}
