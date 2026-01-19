@@ -27,7 +27,7 @@ type OrderApplicationService struct {
 	eb               event.Listener
 }
 
-// 创建
+// NewOrderApplicationService 创建
 func NewOrderApplicationService(
 	serviceContext *infrastructure.ServiceContext,
 	eb event.Listener,
@@ -126,6 +126,9 @@ func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, o
 	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
 	if err != nil {
 		return status.Error(codes.Internal, "order_id "+strconv.FormatInt(orderId, 10)+"find error: "+err.Error())
+	}
+	if orderInfo == nil {
+		return status.Error(codes.NotFound, "order not found")
 	}
 
 	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
