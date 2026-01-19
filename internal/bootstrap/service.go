@@ -21,6 +21,7 @@ import (
 	"github.com/zhanshen02154/order/pkg/codec"
 	"github.com/zhanshen02154/order/proto/order"
 	"go-micro.dev/v4"
+	broker2 "go-micro.dev/v4/broker"
 	"go-micro.dev/v4/logger"
 	"go-micro.dev/v4/server"
 	"go.opentelemetry.io/otel"
@@ -54,7 +55,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	errorChan := make(chan *sarama.ProducerError, conf.Broker.Kafka.ChannelBufferSize)
 	var eb event.Listener
 	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka, kafkabroker.AsyncProducer(errorChan, successChan))
-	deadLetterWrapper := wrapper.NewDeadLetterWrapper(broker)
+	broker.Init(broker2.ErrorHandler(wrapper.ErrorHandler(broker)))
 	service := micro.NewService(
 		micro.Server(grpc2.NewServer(
 			server.Name(conf.Service.Name),
@@ -117,10 +118,9 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
 		),
 		micro.WrapSubscriber(
-			opentelemetry.NewSubscriberWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
-			prometheus.NewSubscriberWrapper(prometheus.ServiceName(conf.Service.Name), prometheus.ServiceVersion(conf.Service.Version)),
 			logWrapper.SubscribeWrapper(),
-			deadLetterWrapper.Wrapper(),
+			prometheus.NewSubscriberWrapper(prometheus.ServiceName(conf.Service.Name), prometheus.ServiceVersion(conf.Service.Version)),
+			opentelemetry.NewSubscriberWrapper(opentelemetry.WithTraceProvider(otel.GetTracerProvider())),
 		),
 	)
 	// 注册应用层服务及事件侦听器
@@ -129,12 +129,12 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		event.WithServiceName(conf.Service.Name),
 		event.WithServiceVersion(conf.Service.Version),
 		event.WrapPublishCallback(
-			event.NewTracerWrapper(event.WithTracerProvider(otel.GetTracerProvider())),
+			event.NewDeadletterWrapper(event.WithBroker(broker), event.WithTracer(otel.GetTracerProvider()), event.WithServiceInfo(conf.Service)),
 			event.NewPublicCallbackLogWrapper(
 				event.WithLogger(zapLogger),
 				event.WithTimeThreshold(conf.Broker.PublishTimeThreshold),
 			),
-			event.NewDeadletterWrapper(event.WithBroker(broker), event.WithTracer(otel.GetTracerProvider()), event.WithServiceInfo(conf.Service)),
+			event.NewTracerWrapper(event.WithTracerProvider(otel.GetTracerProvider())),
 		),
 	)
 	event.RegisterPublisher(conf.Broker, eb, service.Client())
