@@ -80,12 +80,10 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			if monitorSvr != nil {
 				monitorSvr.Start()
 			}
-			if err := broker.Connect(); err != nil {
-				return err
-			}
 			if err := probeServer.Start(); err != nil {
 				logger.Error("failed to start probe server" + err.Error())
 			}
+			eb.Start()
 			return nil
 		}),
 		micro.BeforeStop(func() error {
@@ -140,7 +138,6 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 		),
 	)
 	event.RegisterPublisher(conf.Broker, eb, service.Client())
-	eb.Start()
 	orderAppService := appservice.NewOrderApplicationService(serviceContext, eb)
 
 	productEventHandler := subscriber.NewProductEventHandler(orderAppService)
