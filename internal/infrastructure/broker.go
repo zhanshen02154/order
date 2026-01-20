@@ -32,7 +32,7 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 	kafkaConfig.Consumer.Fetch.Max = conf.Consumer.FetchMax
 	kafkaConfig.Consumer.Group.Session.Timeout = time.Second * time.Duration(conf.Consumer.Group.SessionTimeout)
 	kafkaConfig.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategySticky
-	kafkaConfig.Consumer.MaxProcessingTime = time.Duration(conf.Consumer.MaxProcessingTime) * time.Millisecond
+	kafkaConfig.Consumer.MaxProcessingTime = time.Duration(conf.Consumer.MaxProcessingTime) * time.Second
 	// 确保 AsyncProducer 返回 successes channel
 	kafkaConfig.Producer.Return.Successes = true
 	kafkaConfig.Producer.Return.Errors = true

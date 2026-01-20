@@ -131,12 +131,13 @@ func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, o
 		return status.Error(codes.NotFound, "order not found")
 	}
 
-	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
-		err := appService.orderDataService.ConfirmPayment(txCtx, orderInfo)
-		if err != nil {
-			return status.Error(codes.Aborted, "failed to confirm payment"+err.Error())
-		}
-		return nil
+	return appService.serviceContext.RetryPolocy.Execute(ctx, func() error {
+		return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+			err := appService.orderDataService.ConfirmPayment(txCtx, orderInfo)
+			if err != nil {
+				return status.Error(codes.Aborted, "failed to confirm payment"+err.Error())
+			}
+			return nil
+		})
 	})
-	return err
 }

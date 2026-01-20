@@ -95,8 +95,7 @@ func main() {
 	traceShutdown := initTracer(confInfo.Service.Name, confInfo.Service.Version, confInfo.Tracer)
 	defer traceShutdown()
 
-	gormLogger := infrastructure.NewGromLogger(finalLogger, serverLogLevel)
-	serviceContext, err := infrastructure.NewServiceContext(&confInfo, gormLogger)
+	serviceContext, err := infrastructure.NewServiceContext(&confInfo, finalLogger, serverLogLevel)
 	if err != nil {
 		logger.Error("error to load service context: ", err)
 		return
