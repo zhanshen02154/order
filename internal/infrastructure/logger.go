@@ -16,7 +16,7 @@ import (
 type LogWrapper struct {
 	logger            *zap.Logger
 	requestSlowTime   int64
-	subscribeSlowTime int64
+	subscribeSlowTime time.Duration
 }
 
 type Option func(p *LogWrapper)
@@ -57,7 +57,7 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 		return func(ctx context.Context, msg server.Message) error {
 			startTime := time.Now()
 			err := next(ctx, msg)
-			duration := time.Since(startTime).Milliseconds()
+			duration := time.Since(startTime)
 			baseFields := make([]zap.Field, 0, 11)
 			baseFields = append(baseFields, zap.String("type", "subscribe"),
 				zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
@@ -69,11 +69,11 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 				zap.String("remote", metadatahelper.GetValueFromMetadata(ctx, "Remote")),
 				zap.String("accept_encoding", metadatahelper.GetValueFromMetadata(ctx, "Accept-Encoding")),
 				zap.String("key", metadatahelper.GetValueFromMetadata(ctx, "Pkey")),
-				zap.Int64("duration", duration))
+				zap.Int64("duration", duration.Milliseconds()))
 			switch {
 			case err != nil:
 				w.logger.Error("Event subscribe handler failed: "+err.Error(), baseFields...)
-			case duration > 0 && duration > w.requestSlowTime:
+			case duration > w.subscribeSlowTime:
 				w.logger.Warn("Event subscribe slow", baseFields...)
 			default:
 				w.logger.Info("Event subscribe handler processed", baseFields...)
@@ -193,7 +193,7 @@ func WithRequestSlowThreshold(timeout int64) Option {
 // WithSubscribeSlowThreshold 订阅事件处理延迟时间
 func WithSubscribeSlowThreshold(timeout int64) Option {
 	return func(p *LogWrapper) {
-		p.subscribeSlowTime = timeout
+		p.subscribeSlowTime = time.Duration(timeout) * time.Millisecond
 	}
 }
 
