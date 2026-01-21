@@ -27,7 +27,7 @@ type OrderApplicationService struct {
 	eb               event.Listener
 }
 
-// 创建
+// NewOrderApplicationService 创建
 func NewOrderApplicationService(
 	serviceContext *infrastructure.ServiceContext,
 	eb event.Listener,
@@ -40,7 +40,7 @@ func NewOrderApplicationService(
 	return srv
 }
 
-// 根据ID获取订单信息
+// FindOrderByID 根据ID获取订单信息
 func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id int64) (*model.Order, error) {
 	return appService.orderDataService.FindOrderByID(ctx, id)
 }
@@ -48,14 +48,11 @@ func (appService *OrderApplicationService) FindOrderByID(ctx context.Context, id
 // PayNotify 支付回调
 func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *order.PayNotifyRequest) error {
 	lockKey := "paynotify-" + req.OutTradeNo
-	lock, err := appService.serviceContext.LockManager.NewLock(ctx, lockKey, 15)
-	if err != nil {
-		return err
-	}
-	err = lock.TryLock(ctx)
+	lock := appService.serviceContext.LockManager.NewLock(lockKey, 18)
+	err := lock.TryLock(ctx)
 	defer func() {
 		if err := lock.UnLock(ctx); err != nil {
-			logger.Error("failed to unlock ", lock.GetKey(ctx), " error: ", err)
+			logger.Error("failed to unlock " + lock.GetKey() + " error: " + err.Error())
 		}
 	}()
 	if err != nil {
@@ -102,8 +99,8 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 // RevertPayStatus 恢复支付状态
 func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, orderId int64) error {
 	lockKey := "revertpaystatus-" + strconv.FormatInt(orderId, 10)
-	lock, err := appService.serviceContext.LockManager.NewLock(ctx, lockKey, 10)
-	err = lock.TryLock(ctx)
+	lock := appService.serviceContext.LockManager.NewLock(lockKey, 10)
+	err := lock.TryLock(ctx)
 	defer lock.UnLock(ctx)
 	if err != nil {
 		return err
@@ -126,17 +123,21 @@ func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, 
 
 // ConfirmPayment 确认支付
 func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, orderId int64) error {
-	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
-	if err != nil {
-		return status.Error(codes.Internal, "order_id "+strconv.FormatInt(orderId, 10)+"find error: "+err.Error())
-	}
-
-	err = appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
-		err := appService.orderDataService.ConfirmPayment(txCtx, orderInfo)
+	return appService.serviceContext.RetryPolocy.Execute(ctx, func() error {
+		orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
 		if err != nil {
-			return status.Error(codes.Aborted, "failed to confirm payment"+err.Error())
+			return status.Error(codes.Internal, "order_id "+strconv.FormatInt(orderId, 10)+"find error: "+err.Error())
 		}
-		return nil
+		if orderInfo == nil {
+			return status.Error(codes.NotFound, "order not found")
+		}
+
+		return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
+			err := appService.orderDataService.ConfirmPayment(txCtx, orderInfo)
+			if err != nil {
+				return status.Error(codes.Aborted, "failed to confirm payment"+err.Error())
+			}
+			return nil
+		})
 	})
-	return err
 }
