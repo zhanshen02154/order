@@ -64,6 +64,7 @@ func (w *deadLetterHandler) publishDeadLetter(ctx context.Context, topic string,
 		header[k] = v
 	}
 	header["Timestamp"] = strconv.FormatInt(time.Now().UnixMilli(), 10)
+	header["Micro-Topic"] = topic
 	dlMsg := broker.Message{
 		Header: header,
 		Body:   make([]byte, len(msg.Body)),
