@@ -66,8 +66,9 @@ func (w *deadLetterHandler) publishDeadLetter(ctx context.Context, topic string,
 	header["Timestamp"] = strconv.FormatInt(time.Now().UnixMilli(), 10)
 	dlMsg := broker.Message{
 		Header: header,
-		Body:   msg.Body,
+		Body:   make([]byte, len(msg.Body)),
 	}
+	copy(dlMsg.Body, msg.Body)
 	spanOpts := []trace.SpanStartOption{
 		trace.WithSpanKind(trace.SpanKindProducer),
 	}
