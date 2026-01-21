@@ -123,15 +123,15 @@ func (appService *OrderApplicationService) RevertPayStatus(ctx context.Context, 
 
 // ConfirmPayment 确认支付
 func (appService *OrderApplicationService) ConfirmPayment(ctx context.Context, orderId int64) error {
-	orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
-	if err != nil {
-		return status.Error(codes.Internal, "order_id "+strconv.FormatInt(orderId, 10)+"find error: "+err.Error())
-	}
-	if orderInfo == nil {
-		return status.Error(codes.NotFound, "order not found")
-	}
-
 	return appService.serviceContext.RetryPolocy.Execute(ctx, func() error {
+		orderInfo, err := appService.orderDataService.FindByIdAndStatus(ctx, orderId, 3)
+		if err != nil {
+			return status.Error(codes.Internal, "order_id "+strconv.FormatInt(orderId, 10)+"find error: "+err.Error())
+		}
+		if orderInfo == nil {
+			return status.Error(codes.NotFound, "order not found")
+		}
+
 		return appService.serviceContext.TxManager.Execute(ctx, func(txCtx context.Context) error {
 			err := appService.orderDataService.ConfirmPayment(txCtx, orderInfo)
 			if err != nil {
