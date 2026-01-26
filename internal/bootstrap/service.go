@@ -28,7 +28,6 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	probeServer := infrastructure.NewProbeServer(conf.Service.HeathCheckAddr, serviceContext)
 
 	monitorSvr := infrastructure.NewMonitorServer(":6060")
-
 	client := grpcclient.NewClient(
 		grpcclient.PoolMaxIdle(100),
 	)
