@@ -19,8 +19,7 @@ const (
 )
 
 type deadletterOptions struct {
-	asyncBroker broker.Broker
-	opts        struct {
+	opts struct {
 		traceProvider trace.TracerProvider
 		service       string
 		version       string
@@ -69,7 +68,7 @@ func NewDeadletterWrapper(opts ...DeadLetterOption) PublishCallbackWrapper {
 				Header: header,
 				Body:   msg.Body,
 			}
-			if pErr := dlqOptions.asyncBroker.Publish(topic, &dlMsg, broker.PublishContext(newCtx)); pErr != nil {
+			if pErr := broker.Publish(topic, &dlMsg, broker.PublishContext(newCtx)); pErr != nil {
 				logger.Error("Failed to publish dead letter topic " + topic + " error: " + pErr.Error())
 				span.SetStatus(codes.Error, pErr.Error())
 				span.RecordError(pErr)
@@ -78,12 +77,6 @@ func NewDeadletterWrapper(opts ...DeadLetterOption) PublishCallbackWrapper {
 			}
 			return
 		}
-	}
-}
-
-func WithBroker(b broker.Broker) DeadLetterOption {
-	return func(d *deadletterOptions) {
-		d.asyncBroker = b
 	}
 }
 

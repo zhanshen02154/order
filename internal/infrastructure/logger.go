@@ -126,7 +126,7 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 
 	// Gorm 错误
 	switch {
-	case err != nil && l.level >= logger.Error && !errors.Is(err, gorm.ErrRecordNotFound):
+	case err != nil && !errors.Is(err, gorm.ErrRecordNotFound):
 		sql, rows := fc()
 		l.logger.Error("database query error: "+err.Error(),
 			zap.String("type", "sql"),
@@ -135,7 +135,7 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 			zap.Int64("time", elapsed),
 			zap.Int64("rows", rows),
 		)
-	case l.slowThreshold != 0 && elapsed > l.slowThreshold && l.level >= logger.Warn:
+	case l.slowThreshold != 0 && elapsed > l.slowThreshold:
 		sql, rows := fc()
 		l.logger.Warn("database query slow",
 			zap.String("type", "sql"),
@@ -144,7 +144,7 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 			zap.Int64("time", elapsed),
 			zap.Int64("rows", rows),
 		)
-	case l.level >= logger.Info:
+	default:
 		sql, rows := fc()
 		l.logger.Info("database query info",
 			zap.String("type", "sql"),
