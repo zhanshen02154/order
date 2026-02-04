@@ -37,11 +37,13 @@ func ErrorHandler() broker.Handler {
 			return nil
 		}
 		topic := event.Topic() + deadLetterTopicKey
+		if event.Message().Header == nil {
+			event.Message().Header = make(map[string]string)
+		}
 		if v, ok := event.Message().Header["Traceparent"]; ok {
 			event.Message().Header["traceparent"] = v
 		}
-		ctx := context.TODO()
-		ctx = metadata.NewContext(ctx, event.Message().Header)
+		ctx := metadata.NewContext(context.Background(), event.Message().Header)
 		err := options.publishDeadLetter(ctx, topic, event.Message(), event.Error())
 		if err != nil {
 			logger.Errorf("failed to publish to %s, error: %s", topic, err.Error())

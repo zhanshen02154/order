@@ -24,5 +24,7 @@ func newServer(conf *config.SysConfig) micro.Option {
 			server.RegisterTTL(time.Duration(conf.Consul.RegisterTtl)*time.Second),
 			server.RegisterInterval(time.Duration(conf.Consul.RegisterInterval)*time.Second),
 			grpcserver.Codec("application/grpc+dtm_raw", codec.NewDtmCodec()),
+			grpcserver.MaxConn(conf.Service.MaxConn),
+			grpcserver.MaxMsgSize(conf.Service.MaxMsgSize),
 		))
 }
