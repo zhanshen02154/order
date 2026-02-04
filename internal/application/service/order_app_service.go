@@ -33,7 +33,7 @@ func NewOrderApplicationService(
 	eb event.Listener,
 ) IOrderApplicationService {
 	srv := &OrderApplicationService{
-		orderDataService: service.NewOrderDataService(serviceContext.OrderRepository),
+		orderDataService: service.NewOrderDataService(serviceContext),
 		serviceContext:   serviceContext,
 		eb:               eb,
 	}
@@ -59,7 +59,7 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 		return err
 	}
 
-	orderInfo, err := appService.serviceContext.OrderRepository.FindPayOrderByCode(ctx, req.OutTradeNo)
+	orderInfo, err := appService.orderDataService.FindPayOrderByCode(ctx, req.OutTradeNo)
 	if err != nil {
 		return err
 	}

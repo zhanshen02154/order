@@ -14,13 +14,12 @@ import (
 )
 
 type ServiceContext struct {
-	TxManager       transaction.TransactionManager
-	LockManager     LockManager
-	Conf            *config.SysConfig
-	db              *gorm.DB
-	OrderRepository repository.IOrderRepository
-	Dtm             *dtm.Server
-	RetryPolocy     retry.Policy
+	TxManager   transaction.TransactionManager
+	LockManager LockManager
+	Conf        *config.SysConfig
+	db          *gorm.DB
+	Dtm         *dtm.Server
+	RetryPolocy retry.Policy
 }
 
 // NewServiceContext 初始化服务上下文
@@ -44,12 +43,11 @@ func NewServiceContext(conf *config.SysConfig, zapLogger *zap.Logger, logLevel z
 		return nil, err
 	}
 	return &ServiceContext{
-		TxManager:       gorm2.NewGormTransactionManager(db),
-		LockManager:     lockMgr,
-		Conf:            conf,
-		db:              db,
-		OrderRepository: gorm2.NewOrderRepository(db),
-		Dtm:             dtm.NewServer(conf.Transaction.Host),
+		TxManager:   gorm2.NewGormTransactionManager(db),
+		LockManager: lockMgr,
+		Conf:        conf,
+		db:          db,
+		Dtm:         dtm.NewServer(conf.Transaction.Host),
 		RetryPolocy: retry.NewRetryPolicy(
 			retry.WithLogger(zapLogger),
 			retry.WithKafkaConsumerConfig(conf.Broker.Kafka.Consumer),
@@ -112,4 +110,8 @@ func (svc *ServiceContext) CheckHealth() error {
 		return err
 	}
 	return nil
+}
+
+func (svc *ServiceContext) NewOrderRepository() repository.IOrderRepository {
+	return gorm2.NewOrderRepository(svc.db)
 }
