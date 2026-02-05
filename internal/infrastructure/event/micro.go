@@ -207,5 +207,11 @@ func NewListener(opts ...Option) Listener {
 	for _, opt := range opts {
 		opt(&listener)
 	}
+	if listener.successChan == nil {
+		listener.successChan = make(chan *sarama.ProducerMessage)
+	}
+	if listener.errorChan == nil {
+		listener.errorChan = make(chan *sarama.ProducerError)
+	}
 	return &listener
 }

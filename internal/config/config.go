@@ -14,7 +14,6 @@ type SysConfig struct {
 	Service     *ServiceInfo `json:"service" yaml:"service"`
 	Database    *MySqlConfig `json:"database" yaml:"database"`
 	Consul      *ConsulInfo  `json:"consul" yaml:"consul"`
-	Consumer    *Consumer    `json:"consumer" yaml:"consumer"`
 	Transaction *Transaction `yaml:"transaction" json:"transaction"`
 	Broker      *Broker      `json:"broker" yaml:"broker"`
 	Tracer      *Tracer      `json:"tracer" yaml:"tracer"`
@@ -30,6 +29,8 @@ type ServiceInfo struct {
 	HeathCheckAddr       string `json:"heath_check_addr" yaml:"heath_check_addr"`
 	RequestSlowThreshold int64  `json:"request_slow_threshold" yaml:"request_slow_threshold"`
 	LogLevel             string `json:"log_level" yaml:"log_level"`
+	MaxConn              int    `json:"max_conn" yaml:"max_conn"`
+	MaxMsgSize           int    `json:"max_msg_size" yaml:"max_msg_size"`
 }
 
 // ConsulInfo Consul配置信息
@@ -47,13 +48,6 @@ type ConsulInfo struct {
 // MySqlConfig MySQL配置信息
 type MySqlConfig struct {
 	Dsn             string `json:"dsn" yaml:"dsn"`
-	Host            string `json:"host" yaml:"host"`
-	Port            int64  `json:"port" yaml:"port"`
-	User            string `json:"user" yaml:"user"`
-	Password        string `json:"password" yaml:"password"`
-	Database        string `json:"database" yaml:"database"`
-	Loc             string `json:"loc" yaml:"loc"`
-	Charset         string `json:"charset" yaml:"charset"`
 	MaxOpenConns    int    `json:"max_open_conns" yaml:"max_open_conns"`
 	MaxIdleConns    int    `json:"max_idle_conns" yaml:"max_idle_conns"`
 	ConnMaxLifeTime uint   `json:"conn_max_life_time" yaml:"conn_max_life_time"`
@@ -73,14 +67,6 @@ type Redis struct {
 	LockTries      int    `json:"lock_tries" yaml:"lock_tries"`
 	LockRetryDelay int    `json:"lock_retry_delay" yaml:"lock_retry_delay"`
 	LockDB         int    `json:"lock_db" yaml:"lock_db"`
-}
-
-type Consumer struct {
-	Product *Product `json:"product" yaml:"product"`
-}
-
-type Product struct {
-	Addr string `json:"addr" yaml:"addr"`
 }
 
 // Transaction 事务管理

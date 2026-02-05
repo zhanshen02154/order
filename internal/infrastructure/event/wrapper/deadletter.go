@@ -19,14 +19,12 @@ const deadLetterTopicKey = "DLQ"
 
 // deadLetterHandler 死信队列
 type deadLetterHandler struct {
-	b             broker.Broker
 	traceProvicer trace.TracerProvider
 }
 
 // ErrorHandler 错误处理
-func ErrorHandler(b broker.Broker) broker.Handler {
+func ErrorHandler() broker.Handler {
 	options := &deadLetterHandler{
-		b:             b,
 		traceProvicer: otel.GetTracerProvider(),
 	}
 
@@ -39,11 +37,13 @@ func ErrorHandler(b broker.Broker) broker.Handler {
 			return nil
 		}
 		topic := event.Topic() + deadLetterTopicKey
+		if event.Message().Header == nil {
+			event.Message().Header = make(map[string]string)
+		}
 		if v, ok := event.Message().Header["Traceparent"]; ok {
 			event.Message().Header["traceparent"] = v
 		}
-		ctx := context.TODO()
-		ctx = metadata.NewContext(ctx, event.Message().Header)
+		ctx := metadata.NewContext(context.Background(), event.Message().Header)
 		err := options.publishDeadLetter(ctx, topic, event.Message(), event.Error())
 		if err != nil {
 			logger.Errorf("failed to publish to %s, error: %s", topic, err.Error())
@@ -75,7 +75,7 @@ func (w *deadLetterHandler) publishDeadLetter(ctx context.Context, topic string,
 	}
 	newCtx, span := opentelemetry.StartSpanFromContext(ctx, w.traceProvicer, "Pub to deadletter topic "+topic, spanOpts...)
 	defer span.End()
-	pErr := w.b.Publish(topic, &dlMsg, broker.PublishContext(newCtx))
+	pErr := broker.Publish(topic, &dlMsg, broker.PublishContext(newCtx))
 	if pErr != nil {
 		span.SetStatus(codes.Error, pErr.Error())
 		span.RecordError(pErr)

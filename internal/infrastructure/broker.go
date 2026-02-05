@@ -4,6 +4,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/go-micro/plugins/v4/broker/kafka"
 	"github.com/zhanshen02154/order/internal/config"
+	"github.com/zhanshen02154/order/internal/infrastructure/event/wrapper"
 	"go-micro.dev/v4/broker"
 	"go-micro.dev/v4/logger"
 	"time"
@@ -46,6 +47,7 @@ func NewKafkaBroker(conf *config.Kafka, opts ...broker.Option) broker.Broker {
 		broker.Addrs(conf.Hosts...),
 		kafka.BrokerConfig(loadKafkaConfig(conf)),
 		broker.Logger(logger.DefaultLogger),
+		broker.ErrorHandler(wrapper.ErrorHandler()),
 	}
 	options = append(options, opts...)
 	return kafka.NewBroker(options...)

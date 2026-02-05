@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"github.com/zhanshen02154/order/internal/domain/model"
 	"github.com/zhanshen02154/order/internal/domain/repository"
+	"github.com/zhanshen02154/order/internal/infrastructure"
 	"github.com/zhanshen02154/order/proto/order"
 	"go-micro.dev/v4/metadata"
 	"time"
@@ -17,23 +18,24 @@ type IOrderDataService interface {
 	FindByIdAndStatus(ctx context.Context, orderId int64, status int32) (*model.Order, error)
 	ConfirmPayment(ctx context.Context, orderInfo *model.Order) error
 	RevertPayment(ctx context.Context, orderInfo *model.Order) error
+	FindPayOrderByCode(ctx context.Context, code string) (*model.Order, error)
 }
 
 // 创建
-func NewOrderDataService(orderRepository repository.IOrderRepository) IOrderDataService {
-	return &OrderDataService{orderRepository: orderRepository}
+func NewOrderDataService(sc *infrastructure.ServiceContext) IOrderDataService {
+	return &OrderDataService{orderRepository: sc.NewOrderRepository()}
 }
 
 type OrderDataService struct {
 	orderRepository repository.IOrderRepository
 }
 
-// 根据id查找
+// FindOrderByID 根据id查找
 func (u *OrderDataService) FindOrderByID(ctx context.Context, id int64) (*model.Order, error) {
 	return u.orderRepository.FindOrderByID(ctx, id)
 }
 
-// 订单支付回调
+// PayNotify 订单支付回调
 func (u *OrderDataService) PayNotify(ctx context.Context, payOrderInfo *model.Order, req *order.PayNotifyRequest) error {
 	if req.StatusCode != "0000" {
 		payOrderInfo.PayStatus = 4
@@ -71,4 +73,8 @@ func (u *OrderDataService) RevertPayment(ctx context.Context, orderInfo *model.O
 		orderInfo.PayError = errorMsg
 	}
 	return u.orderRepository.UpdatePayOrder(ctx, orderInfo)
+}
+
+func (u *OrderDataService) FindPayOrderByCode(ctx context.Context, code string) (*model.Order, error) {
+	return u.orderRepository.FindPayOrderByCode(ctx, code)
 }
