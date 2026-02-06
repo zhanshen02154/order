@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go-micro.dev/v4/logger"
 	"net/http"
@@ -39,7 +40,7 @@ func (srv *MonitorServer) Start() {
 	go func() {
 		defer srv.wg.Done()
 		err := srv.pprof.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("Faild to start pprof server: " + err.Error())
 			return
 		}
@@ -47,12 +48,13 @@ func (srv *MonitorServer) Start() {
 	srv.startMetrics()
 }
 
+// 开启指标
 func (srv *MonitorServer) startMetrics() {
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		defer srv.wg.Done()
 		err := srv.prom.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("Failed to start metrics server: " + err.Error())
 			return
 		}
