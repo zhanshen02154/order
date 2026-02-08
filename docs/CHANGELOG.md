@@ -1,6 +1,19 @@
 
+<a name="v6.2.1"></a>
+## [v6.2.1](https://github.com/zhanshen02154/order/compare/v6.2.0...v6.2.1) (2026-02-04)
+
+### Code Refactoring
+
+* broker属性替换为默认的broker
+* **broker:** 移除基础设施层的broker
+
+### Performance Improvements
+
+* **配置信息:** 删除无用的配置
+
+
 <a name="v6.2.0"></a>
-## [v6.2.0](https://github.com/zhanshen02154/order/compare/v6.1.0...v6.2.0) (2026-01-26)
+## [v6.2.0](https://github.com/zhanshen02154/order/compare/v6.1.0...v6.2.0) (2026-01-27)
 
 ### Bug Fixes
 
@@ -17,6 +30,7 @@
 
 ### Bug Fixes
 
+* 更改死信队列主题名
 * 死信队列消息用全新的切片
 * 幂等性判断列入到重试函数里
 * 引入context重试
@@ -86,7 +100,8 @@
 ### BREAKING CHANGE
 
 
-- 删除client
+删除client
+
 - 事件侦听器的日志移到包装器并在入口函数初始化
 - 事件侦听器的发布消息回调链路追踪移到包装器并在入口函数初始化
 - 事件侦听器的死信队列移到包装器并在入口函数初始化
