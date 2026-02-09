@@ -71,13 +71,15 @@ func NewPublicCallbackLogWrapper(opts ...LogOption) PublishCallbackWrapper {
 	}
 }
 
+// WithLogger 日志记录
 func WithLogger(l *zap.Logger) LogOption {
 	return func(opts *listenerLoggerOptions) {
 		opts.logger = l
 	}
 }
 
-func WithTimeThreshold(times int64) LogOption {
+// WithPublishTimeThreshold 消息推送时间阈值
+func WithPublishTimeThreshold(times int64) LogOption {
 	return func(opts *listenerLoggerOptions) {
 		opts.publishTimeThreshold = time.Duration(times) * time.Millisecond
 	}
