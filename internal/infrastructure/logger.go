@@ -82,11 +82,11 @@ func (w *LogWrapper) SubscribeWrapper() server.SubscriberWrapper {
 
 // NewLogWrapper 创建日志包装器
 func NewLogWrapper(opts ...Option) *LogWrapper {
-	w := LogWrapper{}
+	w := &LogWrapper{}
 	for _, opt := range opts {
-		opt(&w)
+		opt(w)
 	}
-	return &w
+	return w
 }
 
 // WithRequestSlowThreshold 慢请求时间

@@ -38,10 +38,15 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	var eb event.Listener
 	broker := infrastructure.NewKafkaBroker(conf.Broker.Kafka, kafkabroker.AsyncProducer(errorChan, successChan))
 	broker2.DefaultBroker = broker
+	logWrapper := infrastructure.NewLogWrapper(
+		infrastructure.WithZapLogger(zapLogger),
+		infrastructure.WithRequestSlowThreshold(conf.Service.RequestSlowThreshold),
+		infrastructure.WithSubscribeSlowThreshold(conf.Broker.SubscribeSlowThreshold),
+	)
 	service := micro.NewService(
 		newServer(conf),
 		micro.Client(client),
-		handlerWrapper(conf, zapLogger),
+		handlerWrapper(conf.Service, logWrapper),
 		micro.Broker(broker),
 		micro.AfterStart(func() error {
 			if monitorSvr != nil {
@@ -83,7 +88,7 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 			monitor.NewClientWrapper(monitor.WithName(conf.Service.Name), monitor.WithVersion(conf.Service.Version)),
 			wrapper.NewMetaDataWrapper(conf.Service.Name, conf.Service.Version),
 		),
-		wrapSubscriber(zapLogger, conf),
+		wrapSubscriber(conf.Service, logWrapper),
 	)
 	// 注册应用层服务及事件侦听器
 	eb = event.NewListener(
