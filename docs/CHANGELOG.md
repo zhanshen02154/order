@@ -1,6 +1,28 @@
 
+<a name="v6.3.0"></a>
+## [v6.3.0](https://github.com/zhanshen02154/order/compare/v6.2.1...v6.3.0) (2026-02-09)
+
+### Bug Fixes
+
+* 调整发布事件日志
+
+### Performance Improvements
+
+* 日志包装器只用一个实例
+* 判断日志级别再执行记录操作
+* 优化GORM日志处理逻辑
+* 监控服务器的error判断逻辑
+* **GORM日志:** 优化GORM日志输出
+
+### BREAKING CHANGE
+
+
+- GORM日志移到基础设施的gorm包下
+- 新增慢查询阈值配置
+
+
 <a name="v6.2.1"></a>
-## [v6.2.1](https://github.com/zhanshen02154/order/compare/v6.2.0...v6.2.1) (2026-02-04)
+## [v6.2.1](https://github.com/zhanshen02154/order/compare/v6.2.0...v6.2.1) (2026-02-05)
 
 ### Code Refactoring
 
