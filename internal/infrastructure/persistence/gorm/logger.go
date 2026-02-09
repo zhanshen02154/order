@@ -49,25 +49,15 @@ func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql 
 
 	// Gorm 错误
 	switch {
-	case err != nil && l.LogLevel >= logger.Error:
+	case err != nil && l.LogLevel >= logger.Error && (!errors.Is(err, gorm.ErrRecordNotFound) || !l.IgnoreRecordNotFoundError):
 		sql, rows := fc()
-		if errors.Is(err, gorm.ErrRecordNotFound) && !l.IgnoreRecordNotFoundError {
-			l.logger.Warn("database query data not found: "+err.Error(),
-				zap.String("type", "sql"),
-				zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
-				zap.String("sql", sql),
-				zap.Int64("time", elapsed.Milliseconds()),
-				zap.Int64("rows", rows),
-			)
-		} else {
-			l.logger.Error("database query error: "+err.Error(),
-				zap.String("type", "sql"),
-				zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
-				zap.String("sql", sql),
-				zap.Int64("time", elapsed.Milliseconds()),
-				zap.Int64("rows", rows),
-			)
-		}
+		l.logger.Error("database query error: "+err.Error(),
+			zap.String("type", "sql"),
+			zap.String("trace_id", metadatahelper.GetTraceIdFromSpan(ctx)),
+			zap.String("sql", sql),
+			zap.Int64("time", elapsed.Milliseconds()),
+			zap.Int64("rows", rows),
+		)
 	case elapsed > l.SlowThreshold && l.SlowThreshold != 0 && l.LogLevel >= logger.Warn:
 		sql, rows := fc()
 		l.logger.Warn(fmt.Sprintf("SLOW SQL >= %d ms", l.SlowThreshold.Milliseconds()),
