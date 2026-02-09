@@ -19,23 +19,30 @@ type gormLogger struct {
 }
 
 func (l *gormLogger) LogMode(level logger.LogLevel) logger.Interface {
-	l.LogLevel = level
-	return l
+	newlogger := *l
+	newlogger.LogLevel = level
+	return &newlogger
 }
 
 // Info Info日志
 func (l *gormLogger) Info(ctx context.Context, str string, args ...interface{}) {
-	l.logger.Sugar().Infof(str, args...)
+	if l.LogLevel >= logger.Info {
+		l.logger.Sugar().Infof(str, args...)
+	}
 }
 
 // Warn Warn日志
 func (l *gormLogger) Warn(ctx context.Context, str string, args ...interface{}) {
-	l.logger.Sugar().Warnf(str, args...)
+	if l.LogLevel >= logger.Warn {
+		l.logger.Sugar().Warnf(str, args...)
+	}
 }
 
 // Error日志
 func (l *gormLogger) Error(ctx context.Context, str string, args ...interface{}) {
-	l.logger.Sugar().Errorf(str, args...)
+	if l.LogLevel >= logger.Error {
+		l.logger.Sugar().Errorf(str, args...)
+	}
 }
 
 // Trace Trace日志
