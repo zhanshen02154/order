@@ -85,8 +85,9 @@
 ## 注意事项
 - proto文件更新后必须在Apisix的protos接口更新内容。
 - 安装依赖必须指定版本并考虑与当前Golang版本的兼容性，防止在安装过程中升级golang或变更原有依赖。
-- 由于配置文件放在服务注册中心Consul的KV获取，编译Docker镜像必须指定3个环境变量：CONSUL_HOST（consul的IP地址）、CONSUL_PORT（Consul端口）、CONSUL_PREFIX（前缀），没有指定则一律按本地开发环境处理。
+- 由于配置文件放在服务注册中心Consul的KV获取，本地开发环境编译时必须指定3个环境变量：CONSUL_HOST（consul的IP地址）、CONSUL_PORT（Consul端口）、CONSUL_PREFIX（前缀），没有指定则一律按本机地址处理。
 - 上传到Apisix之前使用如下命令生成PB文件再使用base64编码作为content参数的内容上传。
+- event更新后也要同步刷新到pb.go文件让其生效。
 ```bash
   protoc --include_imports --descriptor_set_out=./order.pb --proto_path=./proto --proto_path=<include path> --go_out=. --micro_out=. ./proto/order/order.proto
   echo $(base64 -w0 order.pb) > order.txt  # 上传到Apisix用的是这个文件里的内容
