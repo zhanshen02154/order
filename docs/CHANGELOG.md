@@ -1,4 +1,13 @@
 
+<a name="v6.3.1"></a>
+## [v6.3.1](https://github.com/zhanshen02154/order/compare/v6.3.0...v6.3.1) (2026-02-10)
+
+### Bug Fixes
+
+* 优化事件侦听器选项
+* 发布消息携带context
+
+
 <a name="v6.3.0"></a>
 ## [v6.3.0](https://github.com/zhanshen02154/order/compare/v6.2.1...v6.3.0) (2026-02-09)
 
