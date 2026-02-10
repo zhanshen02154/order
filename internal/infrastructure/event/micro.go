@@ -32,11 +32,11 @@ type microListener struct {
 	quitChan       chan struct{}
 	// started 用于防止重复 Start
 	started bool
-	opts    *options
+	opts    options
 }
 
 // Publish 发布
-func (l *microListener) Publish(ctx context.Context, topic string, msg interface{}, key string, opts ...client.PublishOption) error {
+func (l *microListener) Publish(ctx context.Context, topic string, msg interface{}, key string) error {
 	if pub, ok := l.eventPublisher.Load(topic); ok {
 		if e, assertOk := pub.(micro.Event); assertOk {
 			// 将key放到metadata
@@ -45,7 +45,7 @@ func (l *microListener) Publish(ctx context.Context, topic string, msg interface
 					ctx = metadata.Set(ctx, partitionKey, key)
 				}
 			}
-			return e.Publish(ctx, msg, opts...)
+			return e.Publish(ctx, msg, client.PublishContext(ctx))
 		} else {
 			return errors.New("invalid event")
 		}
@@ -195,17 +195,17 @@ func (l *microListener) handleCallback(sg *sarama.ProducerMessage, err error) {
 
 // NewListener 新建侦听器
 func NewListener(opts ...Option) Listener {
-	listener := microListener{
+	listener := &microListener{
 		mu:             sync.RWMutex{},
 		eventPublisher: sync.Map{},
 		wg:             sync.WaitGroup{},
 		quitChan:       make(chan struct{}),
-		opts: &options{
+		opts: options{
 			wrappers: make([]PublishCallbackWrapper, 0, 10),
 		},
 	}
 	for _, opt := range opts {
-		opt(&listener)
+		opt(listener)
 	}
 	if listener.successChan == nil {
 		listener.successChan = make(chan *sarama.ProducerMessage)
@@ -213,5 +213,5 @@ func NewListener(opts ...Option) Listener {
 	if listener.errorChan == nil {
 		listener.errorChan = make(chan *sarama.ProducerError)
 	}
-	return &listener
+	return listener
 }
