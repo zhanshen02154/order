@@ -123,11 +123,6 @@ func FindZapLogLevel(level string) zapcore.Level {
 	case "error":
 		zapLevel = zap.ErrorLevel
 		break
-	case "fatal":
-		zapLevel = zap.FatalLevel
-	case "panic":
-		zapLevel = zap.DPanicLevel
-		break
 	}
 	return zapLevel
 }
