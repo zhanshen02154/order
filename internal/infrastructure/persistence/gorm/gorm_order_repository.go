@@ -23,16 +23,17 @@ func (orderRepo *OrderRepository) FindOrderByID(ctx context.Context, id int64) (
 }
 
 func (orderRepo *OrderRepository) FindPayOrderByCode(ctx context.Context, orderCode string) (*model.Order, error) {
+	db := GetDBFromContext(ctx, orderRepo.db)
 	payOrderInfo := &model.Order{}
-	err := orderRepo.db.WithContext(ctx).Debug().Table("orders").Select("id", "order_code", "pay_status", "pay_time").Where("order_code = ?", orderCode).First(payOrderInfo).Error
+	err := db.WithContext(ctx).Table("orders").Select("id", "order_code", "pay_status", "pay_time").Where("order_code = ?", orderCode).First(payOrderInfo).Error
 	if err != nil {
 		return nil, err
 	}
 	if payOrderInfo == nil {
 		return nil, errors.New("订单不存在！")
 	}
-	err = orderRepo.db.WithContext(ctx).Debug().Table("order_details").
-		Where("order_id = ?", payOrderInfo.Id).Select("product_id", "product_num", "product_size_id", "order_id").Find(&payOrderInfo.OrderDetail).Error
+	err = db.WithContext(ctx).Table("order_details").
+		Where("order_id = ?", payOrderInfo.Id).Select("order_id", "sku_id", "product_id", "quantity").Find(&payOrderInfo.OrderDetail).Error
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +69,7 @@ func (orderRepo *OrderRepository) ConfirmPaymentOrder(ctx context.Context, order
 	return nil
 }
 
-// 更新订单状态
+// UpdatePayStatus 更新订单状态
 func (orderRepo *OrderRepository) UpdatePayStatus(ctx context.Context, id int64, status int32) error {
 	db := GetDBFromContext(ctx, orderRepo.db)
 	res := db.Model(model.Order{}).Where("id = ?", id).Select("pay_status").Update("pay_status", status)
@@ -83,8 +84,9 @@ func (orderRepo *OrderRepository) UpdatePayStatus(ctx context.Context, id int64,
 
 // FindByIdAndStatus 根据ID和状态查找订单内容
 func (orderRepo *OrderRepository) FindByIdAndStatus(ctx context.Context, id int64, status int32) (*model.Order, error) {
+	db := GetDBFromContext(ctx, orderRepo.db)
 	order := &model.Order{}
-	err := orderRepo.db.WithContext(ctx).Model(order).Where("id = ? AND pay_status = ?", id, status).
+	err := db.WithContext(ctx).Model(order).Where("id = ? AND pay_status = ?", id, status).
 		Select("id", "pay_status", "pay_time", "pay_error").First(order).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -96,7 +98,7 @@ func (orderRepo *OrderRepository) FindByIdAndStatus(ctx context.Context, id int6
 	return order, err
 }
 
-// 确认支付
+// ConfirmPayment 确认支付
 func (orderRepo *OrderRepository) ConfirmPayment(ctx context.Context, orderInfo *model.Order) error {
 	db := GetDBFromContext(ctx, orderRepo.db)
 	res := db.Model(orderInfo).
