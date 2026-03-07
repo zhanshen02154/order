@@ -2,12 +2,7 @@ package swap
 
 import "encoding/json"
 
-// SwapTo
-//
-//	@Description: 转换
-//	@param request
-//	@param category
-//	@return err
+// ConvertTo 转换
 func ConvertTo(request, category interface{}) (err error) {
 	dataByte, err := json.Marshal(request)
 	if err != nil {
