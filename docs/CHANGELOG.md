@@ -1,4 +1,18 @@
 
+<a name="v7.0.0"></a>
+## [v7.0.0](https://github.com/zhanshen02154/order/compare/v6.3.2...v7.0.0) (2026-03-07)
+
+### Code Refactoring
+
+* 重构订单详情表及支付成功事件
+
+### BREAKING CHANGE
+
+
+- 重构订单详情表
+- 重写支付成功事件
+
+
 <a name="v6.3.2"></a>
 ## [v6.3.2](https://github.com/zhanshen02154/order/compare/v6.3.1...v6.3.2) (2026-02-16)
 

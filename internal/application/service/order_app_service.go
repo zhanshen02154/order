@@ -76,15 +76,15 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 
 		// 发布事件
 		onPaymentSuccessEvent := &orderevent.OnPaymentSuccess{
-			OrderId:  orderInfo.Id,
-			Products: make([]*orderevent.ProductInventoryItem, 0),
+			OrderId:      orderInfo.Id,
+			OrderDetails: make([]*orderevent.OrderDetail, 0, len(orderInfo.OrderDetail)),
 		}
 		if orderInfo.OrderDetail != nil {
 			for _, item := range orderInfo.OrderDetail {
-				onPaymentSuccessEvent.Products = append(onPaymentSuccessEvent.Products, &orderevent.ProductInventoryItem{
-					ProductId:     item.ProductId,
-					ProductNum:    item.ProductNum,
-					ProductSizeId: item.ProductSizeId,
+				onPaymentSuccessEvent.OrderDetails = append(onPaymentSuccessEvent.OrderDetails, &orderevent.OrderDetail{
+					ProductId: item.ProductID,
+					SkuId:     item.SkuID,
+					Quantity:  item.Quantity,
 				})
 			}
 			err = appService.eb.Publish(txCtx, "OnPaymentSuccess", onPaymentSuccessEvent, strconv.FormatInt(orderInfo.Id, 10))
