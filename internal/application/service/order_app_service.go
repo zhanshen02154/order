@@ -87,7 +87,7 @@ func (appService *OrderApplicationService) PayNotify(ctx context.Context, req *o
 					Quantity:  item.Quantity,
 				})
 			}
-			err = appService.eb.Publish(txCtx, "OnPaymentSuccess", onPaymentSuccessEvent, strconv.FormatInt(orderInfo.Id, 10))
+			err = appService.eb.Publish(txCtx, "OrderEvent", onPaymentSuccessEvent, strconv.FormatInt(orderInfo.Id, 10), "OnPaymentSuccess")
 			if err != nil {
 				return err
 			}
