@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package common;
+
+option go_package = "./internal/domain/event";
+
+// 基础事件
+message BaseEvent {
+  int64  timestamp = 2;
+  string event_type = 3;
+  bytes payload = 4;
+}

@@ -43,6 +43,7 @@ func ErrorHandler() broker.Handler {
 		if v, ok := event.Message().Header["Traceparent"]; ok {
 			event.Message().Header["traceparent"] = v
 		}
+		event.Message().Header["Event-Type"] = event.Message().Header["Event_type"] + deadLetterTopicKey
 		ctx := metadata.NewContext(context.Background(), event.Message().Header)
 		err := options.publishDeadLetter(ctx, topic, event.Message(), event.Error())
 		if err != nil {
