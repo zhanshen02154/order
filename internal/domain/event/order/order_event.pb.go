@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.8
 // 	protoc        v4.23.2
-// source: order/order_event.proto
+// source: proto/order/order_event.proto
 
 package order
 
@@ -32,7 +32,7 @@ type OnPaymentSuccess struct {
 
 func (x *OnPaymentSuccess) Reset() {
 	*x = OnPaymentSuccess{}
-	mi := &file_order_order_event_proto_msgTypes[0]
+	mi := &file_proto_order_order_event_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *OnPaymentSuccess) String() string {
 func (*OnPaymentSuccess) ProtoMessage() {}
 
 func (x *OnPaymentSuccess) ProtoReflect() protoreflect.Message {
-	mi := &file_order_order_event_proto_msgTypes[0]
+	mi := &file_proto_order_order_event_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *OnPaymentSuccess) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OnPaymentSuccess.ProtoReflect.Descriptor instead.
 func (*OnPaymentSuccess) Descriptor() ([]byte, []int) {
-	return file_order_order_event_proto_rawDescGZIP(), []int{0}
+	return file_proto_order_order_event_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *OnPaymentSuccess) GetOrderId() int64 {
@@ -86,7 +86,7 @@ type OrderDetail struct {
 
 func (x *OrderDetail) Reset() {
 	*x = OrderDetail{}
-	mi := &file_order_order_event_proto_msgTypes[1]
+	mi := &file_proto_order_order_event_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -98,7 +98,7 @@ func (x *OrderDetail) String() string {
 func (*OrderDetail) ProtoMessage() {}
 
 func (x *OrderDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_order_order_event_proto_msgTypes[1]
+	mi := &file_proto_order_order_event_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -111,7 +111,7 @@ func (x *OrderDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderDetail.ProtoReflect.Descriptor instead.
 func (*OrderDetail) Descriptor() ([]byte, []int) {
-	return file_order_order_event_proto_rawDescGZIP(), []int{1}
+	return file_proto_order_order_event_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *OrderDetail) GetProductId() int64 {
@@ -135,11 +135,72 @@ func (x *OrderDetail) GetQuantity() uint32 {
 	return 0
 }
 
-var File_order_order_event_proto protoreflect.FileDescriptor
+// 基础事件
+type BaseEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Payload       []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_order_order_event_proto_rawDesc = "" +
+func (x *BaseEvent) Reset() {
+	*x = BaseEvent{}
+	mi := &file_proto_order_order_event_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BaseEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BaseEvent) ProtoMessage() {}
+
+func (x *BaseEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_order_order_event_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BaseEvent.ProtoReflect.Descriptor instead.
+func (*BaseEvent) Descriptor() ([]byte, []int) {
+	return file_proto_order_order_event_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *BaseEvent) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *BaseEvent) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+func (x *BaseEvent) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+var File_proto_order_order_event_proto protoreflect.FileDescriptor
+
+const file_proto_order_order_event_proto_rawDesc = "" +
 	"\n" +
-	"\x17order/order_event.proto\x12\vorder.event\"j\n" +
+	"\x1dproto/order/order_event.proto\x12\vorder.event\"j\n" +
 	"\x10OnPaymentSuccess\x12\x18\n" +
 	"\aOrderId\x18\x01 \x01(\x03R\aOrderId\x12<\n" +
 	"\fOrderDetails\x18\x02 \x03(\v2\x18.order.event.OrderDetailR\fOrderDetails\"_\n" +
@@ -147,26 +208,31 @@ const file_order_order_event_proto_rawDesc = "" +
 	"\n" +
 	"product_id\x18\x01 \x01(\x03R\tproductId\x12\x15\n" +
 	"\x06sku_id\x18\x02 \x01(\x03R\x05skuId\x12\x1a\n" +
-	"\bquantity\x18\x03 \x01(\rR\bquantityB\x1fZ\x1d./internal/domain/event/orderb\x06proto3"
+	"\bquantity\x18\x03 \x01(\rR\bquantity\"^\n" +
+	"\tBaseEvent\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1c\n" +
+	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\x12\x18\n" +
+	"\apayload\x18\x03 \x01(\fR\apayloadB\x1fZ\x1d./internal/domain/event/orderb\x06proto3"
 
 var (
-	file_order_order_event_proto_rawDescOnce sync.Once
-	file_order_order_event_proto_rawDescData []byte
+	file_proto_order_order_event_proto_rawDescOnce sync.Once
+	file_proto_order_order_event_proto_rawDescData []byte
 )
 
-func file_order_order_event_proto_rawDescGZIP() []byte {
-	file_order_order_event_proto_rawDescOnce.Do(func() {
-		file_order_order_event_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_order_order_event_proto_rawDesc), len(file_order_order_event_proto_rawDesc)))
+func file_proto_order_order_event_proto_rawDescGZIP() []byte {
+	file_proto_order_order_event_proto_rawDescOnce.Do(func() {
+		file_proto_order_order_event_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_order_order_event_proto_rawDesc), len(file_proto_order_order_event_proto_rawDesc)))
 	})
-	return file_order_order_event_proto_rawDescData
+	return file_proto_order_order_event_proto_rawDescData
 }
 
-var file_order_order_event_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_order_order_event_proto_goTypes = []any{
+var file_proto_order_order_event_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_proto_order_order_event_proto_goTypes = []any{
 	(*OnPaymentSuccess)(nil), // 0: order.event.OnPaymentSuccess
 	(*OrderDetail)(nil),      // 1: order.event.OrderDetail
+	(*BaseEvent)(nil),        // 2: order.event.BaseEvent
 }
-var file_order_order_event_proto_depIdxs = []int32{
+var file_proto_order_order_event_proto_depIdxs = []int32{
 	1, // 0: order.event.OnPaymentSuccess.OrderDetails:type_name -> order.event.OrderDetail
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
@@ -175,26 +241,26 @@ var file_order_order_event_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_order_order_event_proto_init() }
-func file_order_order_event_proto_init() {
-	if File_order_order_event_proto != nil {
+func init() { file_proto_order_order_event_proto_init() }
+func file_proto_order_order_event_proto_init() {
+	if File_proto_order_order_event_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_order_order_event_proto_rawDesc), len(file_order_order_event_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_order_order_event_proto_rawDesc), len(file_proto_order_order_event_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_order_order_event_proto_goTypes,
-		DependencyIndexes: file_order_order_event_proto_depIdxs,
-		MessageInfos:      file_order_order_event_proto_msgTypes,
+		GoTypes:           file_proto_order_order_event_proto_goTypes,
+		DependencyIndexes: file_proto_order_order_event_proto_depIdxs,
+		MessageInfos:      file_proto_order_order_event_proto_msgTypes,
 	}.Build()
-	File_order_order_event_proto = out.File
-	file_order_order_event_proto_goTypes = nil
-	file_order_order_event_proto_depIdxs = nil
+	File_proto_order_order_event_proto = out.File
+	file_proto_order_order_event_proto_goTypes = nil
+	file_proto_order_order_event_proto_depIdxs = nil
 }

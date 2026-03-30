@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"github.com/Shopify/sarama"
 	kafkabroker "github.com/go-micro/plugins/v4/broker/kafka"
 	grpcclient "github.com/go-micro/plugins/v4/client/grpc"
@@ -106,10 +107,46 @@ func RunService(conf *config.SysConfig, serviceContext *infrastructure.ServiceCo
 	)
 	event.RegisterPublisher(conf.Broker, eb, service.Client())
 	orderAppService := appservice.NewOrderApplicationService(serviceContext, eb)
+	// 创建事件分发器
+	eventDispatcher := event.NewEventDispatcher()
 
 	productEventHandler := subscriber.NewProductEventHandler(orderAppService)
+	productEventDlqHandler := subscriber.NewProductDlqEventHandler(orderAppService)
+	orderEventDlqHandler := subscriber.NewOrderDlqEventHandler(orderAppService)
 	// 注册订阅事件
-	productEventHandler.RegisterSubscriber(service.Server())
+	// 类型断言，获取 RegisterToDispatcher 方法
+	if dispatcher, ok := interface{}(productEventHandler).(interface {
+		RegisterToDispatcher(*event.EventDispatcher) error
+	}); ok {
+		if err := dispatcher.RegisterToDispatcher(eventDispatcher); err != nil {
+			return fmt.Errorf("failed to register product event handlers: %s", err.Error())
+		}
+	} else {
+		logger.Warn("ProductEventHandler does not implement RegisterToDispatcher, using legacy method")
+	}
+	if dispatcher, ok := interface{}(productEventDlqHandler).(interface {
+		RegisterToDispatcher(*event.EventDispatcher) error
+	}); ok {
+		if err := dispatcher.RegisterToDispatcher(eventDispatcher); err != nil {
+			return fmt.Errorf("failed to register product event handlers: %w", err)
+		}
+	} else {
+		logger.Warn("ProductDlqEventHandler does not implement RegisterToDispatcher, using legacy method")
+	}
+	if dispatcher, ok := interface{}(orderEventDlqHandler).(interface {
+		RegisterToDispatcher(*event.EventDispatcher) error
+	}); ok {
+		if err := dispatcher.RegisterToDispatcher(eventDispatcher); err != nil {
+			return fmt.Errorf("failed to register product event handlers: %w", err)
+		}
+	} else {
+		logger.Warn("OrderEventDlqHandler does not implement RegisterToDispatcher, using legacy method")
+	}
+
+	// 注册所有订阅器到 micro server
+	if err := eventDispatcher.RegisterSubscribers(service.Server()); err != nil {
+		return fmt.Errorf("failed to register subscribers: %w", err)
+	}
 
 	// Register Handler
 	err := order.RegisterOrderHandler(service.Server(), &handler.OrderHandler{OrderAppService: orderAppService})
