@@ -43,9 +43,11 @@ func loadKafkaConfig(conf *config.Kafka) *sarama.Config {
 // NewKafkaBroker 创建Broker
 func NewKafkaBroker(conf *config.Kafka, opts ...broker.Option) broker.Broker {
 	// 将额外传入的 broker.Option 直接透传给 kafka.NewBroker，便于注入 AsyncProducer channels
+	initConfig := loadKafkaConfig(conf)
 	options := []broker.Option{
 		broker.Addrs(conf.Hosts...),
-		kafka.BrokerConfig(loadKafkaConfig(conf)),
+		kafka.BrokerConfig(initConfig),
+		kafka.ClusterConfig(initConfig),
 		broker.Logger(logger.DefaultLogger),
 		broker.ErrorHandler(wrapper.ErrorHandler()),
 	}
