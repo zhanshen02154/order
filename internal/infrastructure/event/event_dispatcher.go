@@ -81,9 +81,7 @@ func (d *EventDispatcher) Dispatch(ctx context.Context, baseEvent *event.BaseEve
 	d.mu.RUnlock()
 
 	if !exists {
-		logger.Warnf("no handler found for event type: %s",
-			baseEvent.EventType)
-		return fmt.Errorf("no handler found for event type: %s", baseEvent.EventType)
+		return nil
 	}
 
 	logger.Infof("dispatching event: eventType=%s",
